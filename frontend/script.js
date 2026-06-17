@@ -27,7 +27,12 @@ const recordVolunteerIdInput = document.getElementById("recordVolunteerId");
 
 // 志工預設服務項目管理區：選擇志工
 const serviceManagerVolunteerSelect = document.getElementById("serviceManagerVolunteerSelect");
-
+const loadVolunteerServicesBtn = document.getElementById("loadVolunteerServicesBtn");
+const volunteerServicesTableBody = document.getElementById("volunteerServicesTableBody");
+const volunteerServicesMessageEl = document.getElementById("volunteerServicesMessage");
+const volunteerServicesErrorEl = document.getElementById("volunteerServicesError");
+const addVolunteerServiceRowBtn = document.getElementById("addVolunteerServiceRowBtn");
+const saveVolunteerServicesBtn = document.getElementById("saveVolunteerServicesBtn");
 const recordForm = document.getElementById("record-form");
 const startDateInput = document.getElementById("startDate");
 const endDateInput = document.getElementById("endDate");
@@ -567,17 +572,92 @@ function renderVolunteerServicesTable() {
   volunteerServicesDraft.forEach((service, index) => {
     const tr = document.createElement("tr");
 
+    const serviceItemCode = padCode4(service.serviceItemCode);
+    const serviceContentCode = padCode4(service.serviceContentCode);
+
+    const itemOptionsHtml = SERVICE_ITEMS.map((item) => {
+      const code = padCode4(item.code);
+      const selected = code === serviceItemCode ? "selected" : "";
+
+      return `
+        <option value="${code}" ${selected}>
+          ${code} - ${item.label}
+        </option>
+      `;
+    }).join("");
+
+    const contentList = SERVICE_CONTENTS_BY_ITEM[serviceItemCode] || [];
+
+    const contentOptionsHtml = contentList.map((content) => {
+      const code = padCode4(content.code);
+      const selected = code === serviceContentCode ? "selected" : "";
+
+      return `
+        <option value="${code}" ${selected}>
+          ${code} - ${content.label}
+        </option>
+      `;
+    }).join("");
+
     tr.innerHTML = `
-      <td>${padCode4(service.serviceItemCode)}</td>
-      <td>${padCode4(service.serviceContentCode)}</td>
-      <td>${service.sortOrder || index + 1}</td>
+      <td>
+        <select data-index="${index}" data-field="serviceItemCode">
+          ${itemOptionsHtml}
+        </select>
+      </td>
+      <td>
+        <select data-index="${index}" data-field="serviceContentCode">
+          ${contentOptionsHtml}
+        </select>
+      </td>
+      <td>
+        <input
+          type="number"
+          min="1"
+          step="1"
+          value="${service.sortOrder || index + 1}"
+          data-index="${index}"
+          data-field="sortOrder"
+        />
+      </td>
       <td>之後放刪除按鈕</td>
     `;
 
     volunteerServicesTableBody.appendChild(tr);
   });
-}
 
+  volunteerServicesTableBody.querySelectorAll("select, input").forEach((input) => {
+    input.addEventListener("change", function () {
+      const index = Number(input.dataset.index);
+      const field = input.dataset.field;
+
+      if (Number.isNaN(index) || !volunteerServicesDraft[index]) return;
+
+      if (field === "serviceItemCode") {
+        const newItemCode = padCode4(input.value);
+
+        volunteerServicesDraft[index].serviceItemCode = newItemCode;
+
+        const firstContent = SERVICE_CONTENTS_BY_ITEM[newItemCode]?.[0];
+        volunteerServicesDraft[index].serviceContentCode = firstContent
+          ? padCode4(firstContent.code)
+          : "";
+
+        renderVolunteerServicesTable();
+        return;
+      }
+
+      if (field === "serviceContentCode") {
+        volunteerServicesDraft[index].serviceContentCode = padCode4(input.value);
+        return;
+      }
+
+      if (field === "sortOrder") {
+        volunteerServicesDraft[index].sortOrder = Number(input.value || index + 1);
+      }
+    });
+  });
+}
 async function loadVolunteerServicesForManager() {
   const volunteerId = serviceManagerVolunteerSelect
     ? serviceManagerVolunteerSelect.value
@@ -626,7 +706,90 @@ async function loadVolunteerServicesForManager() {
     setText(volunteerServicesErrorEl, "無法連線到後端，讀取服務項目失敗。");
   }
 }
+async function saveVolunteerServicesForManager() {
+  const volunteerId = serviceManagerVolunteerSelect
+    ? serviceManagerVolunteerSelect.value
+    : "";
 
+  setText(volunteerServicesErrorEl, "");
+  setText(volunteerServicesMessageEl, "");
+
+  if (!volunteerId) {
+    setText(volunteerServicesErrorEl, "請先選擇志工。");
+    return;
+  }
+
+  const ok = await showConfirm(
+    "確定要儲存目前畫面上的服務項目嗎？這會覆蓋這位志工原本的預設服務項目。",
+    "儲存",
+    "取消"
+  );
+
+  if (!ok) return;
+
+  const services = volunteerServicesDraft.map((service, index) => ({
+    serviceItemCode: padCode4(service.serviceItemCode),
+    serviceContentCode: padCode4(service.serviceContentCode),
+    sortOrder: Number(service.sortOrder || index + 1),
+  }));
+
+  try {
+    const resp = await fetch(
+      `${API_BASE_URL}/api/volunteers/${encodeURIComponent(volunteerId)}/services`,
+      {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ services }),
+      }
+    );
+
+    const data = await resp.json();
+
+    if (!resp.ok || !data.ok) {
+      setText(volunteerServicesErrorEl, data.message || "儲存服務項目失敗。");
+      return;
+    }
+
+    setText(volunteerServicesMessageEl, `已儲存 ${services.length} 筆服務項目。`);
+    showToast("志工預設服務項目已儲存", "success");
+
+    // 儲存後重新載入一次，確認畫面跟 Google Sheet 同步
+    await loadVolunteerServicesForManager();
+  } catch (err) {
+    console.error(err);
+    setText(volunteerServicesErrorEl, "無法連線到後端，儲存服務項目失敗。");
+  }
+}
+function initVolunteerServicesManager() {
+  if (loadVolunteerServicesBtn) {
+    loadVolunteerServicesBtn.addEventListener("click", function () {
+      loadVolunteerServicesForManager();
+    });
+  }
+
+  if (addVolunteerServiceRowBtn) {
+    addVolunteerServiceRowBtn.addEventListener("click", function () {
+      const firstItem = SERVICE_ITEMS[0];
+      const firstItemCode = firstItem ? padCode4(firstItem.code) : "";
+      const firstContent = SERVICE_CONTENTS_BY_ITEM[firstItemCode]?.[0];
+
+      volunteerServicesDraft.push({
+        serviceItemCode: firstItemCode,
+        serviceContentCode: firstContent ? padCode4(firstContent.code) : "",
+        sortOrder: volunteerServicesDraft.length + 1,
+      });
+
+      renderVolunteerServicesTable();
+      setText(volunteerServicesMessageEl, "已新增一列，記得按儲存才會寫入 Google Sheet。");
+      setText(volunteerServicesErrorEl, "");
+    });
+  }
+    if (saveVolunteerServicesBtn) {
+    saveVolunteerServicesBtn.addEventListener("click", function () {
+      saveVolunteerServicesForManager();
+    });
+  }
+}
 function showApp() { loginSection?.classList.add("hidden"); appSection?.classList.remove("hidden"); }
 function showLogin() { appSection?.classList.add("hidden"); loginSection?.classList.remove("hidden"); }
 
