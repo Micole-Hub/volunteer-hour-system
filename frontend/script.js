@@ -588,6 +588,31 @@ async function loadVolunteersFromGSheet() {
 // ============================================================
 // === 登入 + 密碼眼睛切換
 // ============================================================
+function removeDuplicateVolunteerServices() {
+  const seen = new Set();
+  let removedCount = 0;
+
+  for (let i = volunteerServicesDraft.length - 1; i >= 0; i -= 1) {
+    const service = volunteerServicesDraft[i];
+    const serviceItemCode = padCode4(service.serviceItemCode);
+    const serviceContentCode = padCode4(service.serviceContentCode);
+    const key = `${serviceItemCode}__${serviceContentCode}`;
+
+    if (seen.has(key)) {
+      volunteerServicesDraft.splice(i, 1);
+      removedCount += 1;
+    } else {
+      seen.add(key);
+    }
+  }
+
+  volunteerServicesDraft.forEach((service, index) => {
+    service.sortOrder = index + 1;
+  });
+
+  return removedCount;
+}
+
 function renderVolunteerServicesTable() {
   if (!volunteerServicesTableBody) return;
 
@@ -653,16 +678,17 @@ function renderVolunteerServicesTable() {
           data-field="sortOrder"
         />
       </td>
-<td>
-  <button
-    type="button"
-    class="btn btn-small btn-danger"
-    data-action="deleteVolunteerService"
-    data-index="${index}"
-  >
-    刪除
-  </button>
-</td>    `;
+      <td>
+        <button
+          type="button"
+          class="btn btn-small btn-danger"
+          data-action="deleteVolunteerService"
+          data-index="${index}"
+        >
+          刪除
+        </button>
+      </td>
+    `;
 
     volunteerServicesTableBody.appendChild(tr);
   });
@@ -684,12 +710,32 @@ function renderVolunteerServicesTable() {
           ? padCode4(firstContent.code)
           : "";
 
+        const removedCount = removeDuplicateVolunteerServices();
+
         renderVolunteerServicesTable();
+
+        if (removedCount > 0) {
+          setText(volunteerServicesMessageEl, "已自動移除重複的服務項目。");
+          setText(volunteerServicesErrorEl, "");
+          showToast("重複項目已自動移除", "warning");
+        }
+
         return;
       }
 
       if (field === "serviceContentCode") {
         volunteerServicesDraft[index].serviceContentCode = padCode4(input.value);
+
+        const removedCount = removeDuplicateVolunteerServices();
+
+        renderVolunteerServicesTable();
+
+        if (removedCount > 0) {
+          setText(volunteerServicesMessageEl, "已自動移除重複的服務項目。");
+          setText(volunteerServicesErrorEl, "");
+          showToast("重複項目已自動移除", "warning");
+        }
+
         return;
       }
 
@@ -698,27 +744,27 @@ function renderVolunteerServicesTable() {
       }
     });
   });
+
   volunteerServicesTableBody.querySelectorAll('[data-action="deleteVolunteerService"]').forEach((button) => {
-  button.addEventListener("click", async function () {
-    const index = Number(button.dataset.index);
+    button.addEventListener("click", async function () {
+      const index = Number(button.dataset.index);
 
-    if (Number.isNaN(index) || !volunteerServicesDraft[index]) return;
+      if (Number.isNaN(index) || !volunteerServicesDraft[index]) return;
 
-    const ok = await showConfirm("確定要刪除這一列服務項目嗎？", "刪除", "取消");
-    if (!ok) return;
+      const ok = await showConfirm("確定要刪除這一列服務項目嗎？", "刪除", "取消");
+      if (!ok) return;
 
-    volunteerServicesDraft.splice(index, 1);
+      volunteerServicesDraft.splice(index, 1);
 
-    // 重新整理排序，讓畫面順序變乾淨
-    volunteerServicesDraft.forEach((service, i) => {
-      service.sortOrder = i + 1;
+      volunteerServicesDraft.forEach((service, i) => {
+        service.sortOrder = i + 1;
+      });
+
+      renderVolunteerServicesTable();
+      setText(volunteerServicesMessageEl, "已刪除一列，記得按儲存才會寫入 Google Sheet。");
+      setText(volunteerServicesErrorEl, "");
     });
-
-    renderVolunteerServicesTable();
-    setText(volunteerServicesMessageEl, "已刪除一列，記得按儲存才會寫入 Google Sheet。");
-    setText(volunteerServicesErrorEl, "");
   });
-});
 }
 async function loadVolunteerServicesForManager() {
   const volunteerId = serviceManagerVolunteerSelect
@@ -761,8 +807,18 @@ async function loadVolunteerServicesForManager() {
       });
     });
 
+    const removedCount = removeDuplicateVolunteerServices();
+
     renderVolunteerServicesTable();
-    setText(volunteerServicesMessageEl, `已載入 ${volunteerServicesDraft.length} 筆服務項目。`);
+
+    if (removedCount > 0) {
+      setText(
+        volunteerServicesMessageEl,
+        `已載入 ${volunteerServicesDraft.length} 筆服務項目，並自動移除 ${removedCount} 筆重複項目。記得按儲存才會寫回 Google Sheet。`
+      );
+    } else {
+      setText(volunteerServicesMessageEl, `已載入 ${volunteerServicesDraft.length} 筆服務項目。`);
+    }
   } catch (err) {
     console.error(err);
     setText(volunteerServicesErrorEl, "無法連線到後端，讀取服務項目失敗。");
@@ -910,71 +966,6 @@ function renderRecordServiceDraftTable(services) {
 
     recordServiceDraftTableBody.appendChild(tr);
   });
-
-  function updateRowPeopleCount(index, shouldFixTime) {
-    const hoursEl = recordServiceDraftTableBody.querySelector(
-      `input[data-index="${index}"][data-field="hours"]`
-    );
-    const minutesEl = recordServiceDraftTableBody.querySelector(
-      `input[data-index="${index}"][data-field="minutes"]`
-    );
-    const clientCountEl = recordServiceDraftTableBody.querySelector(
-      `input[data-index="${index}"][data-field="clientCount"]`
-    );
-    const peopleCountEl = recordServiceDraftTableBody.querySelector(
-      `input[data-index="${index}"][data-field="peopleCount"]`
-    );
-
-    if (!peopleCountEl) return;
-
-    const hours = Number(hoursEl?.value || 0);
-    const minutes = Number(minutesEl?.value || 0);
-    const clientCount = Number(clientCountEl?.value || 0);
-
-    const normalizedTime = normalizeServiceTime(hours, minutes);
-
-    if (!normalizedTime) {
-      peopleCountEl.value = "";
-      return;
-    }
-
-    // 離開小時 / 分鐘欄位時，把 20 → 30、31 → 小時+1 分鐘0
-    if (shouldFixTime) {
-      if (hoursEl) hoursEl.value = String(normalizedTime.hours);
-      if (minutesEl) minutesEl.value = String(normalizedTime.minutes);
-    }
-
-    if (
-      !Number.isFinite(clientCount) ||
-      clientCount < 0 ||
-      normalizedTime.countedHours <= 0
-    ) {
-      peopleCountEl.value = "";
-      return;
-    }
-
-    peopleCountEl.value = String(
-      Math.round(clientCount * normalizedTime.countedHours)
-    );
-  }
-
-  recordServiceDraftTableBody
-    .querySelectorAll(
-      'input[data-field="hours"], input[data-field="minutes"], input[data-field="clientCount"]'
-    )
-    .forEach((input) => {
-      input.addEventListener("input", function () {
-        updateRowPeopleCount(input.dataset.index, false);
-      });
-    });
-
-  recordServiceDraftTableBody
-    .querySelectorAll('input[data-field="hours"], input[data-field="minutes"]')
-    .forEach((input) => {
-      input.addEventListener("change", function () {
-        updateRowPeopleCount(input.dataset.index, true);
-      });
-    });
 }
 function initVolunteerServicesManager() {
   if (loadVolunteerServicesBtn) {
@@ -995,12 +986,22 @@ function initVolunteerServicesManager() {
         sortOrder: volunteerServicesDraft.length + 1,
       });
 
+      const removedCount = removeDuplicateVolunteerServices();
+
       renderVolunteerServicesTable();
-      setText(volunteerServicesMessageEl, "已新增一列，記得按儲存才會寫入 Google Sheet。");
+
+      if (removedCount > 0) {
+        setText(volunteerServicesMessageEl, "這組服務項目已存在，已自動移除重複列。");
+        showToast("重複項目已自動移除", "warning");
+      } else {
+        setText(volunteerServicesMessageEl, "已新增一列，記得按儲存才會寫入 Google Sheet。");
+      }
+
       setText(volunteerServicesErrorEl, "");
     });
   }
-    if (saveVolunteerServicesBtn) {
+
+  if (saveVolunteerServicesBtn) {
     saveVolunteerServicesBtn.addEventListener("click", function () {
       saveVolunteerServicesForManager();
     });
@@ -1388,14 +1389,27 @@ function initVolunteerSelectAutoFill() {
 
 function updatePeopleCountPreview() {
   if (!hoursInput || !minutesInput || !clientCountInput || !peopleCountDisplayInput) return;
+
   const hours = hoursInput.value !== "" ? Number(hoursInput.value) : 0;
   const minutes = minutesInput.value !== "" ? Number(minutesInput.value) : 0;
   const clientCount = clientCountInput.value !== "" ? Number(clientCountInput.value) : 0;
-  const totalMinutes = hours * 60 + minutes;
-  if (!Number.isFinite(totalMinutes) || totalMinutes < 30) { peopleCountDisplayInput.value = ""; return; }
-  peopleCountDisplayInput.value = String(Math.round(clientCount * (totalMinutes / 60)));
-}
 
+  const normalizedTime = normalizeServiceTime(hours, minutes);
+
+  if (
+    !normalizedTime ||
+    !Number.isFinite(clientCount) ||
+    clientCount < 0 ||
+    normalizedTime.countedHours <= 0
+  ) {
+    peopleCountDisplayInput.value = "";
+    return;
+  }
+
+  peopleCountDisplayInput.value = String(
+    Math.round(clientCount * normalizedTime.countedHours)
+  );
+}
 function initPeopleCountPreview() {
   [hoursInput, minutesInput, clientCountInput].forEach((el) => {
     if (!el) return;
