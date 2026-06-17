@@ -106,7 +106,59 @@
           <ul id="volunteerList"></ul>
         </div>
       </section>
+            <!-- 志工預設服務項目管理 -->
+      <section class="card">
+        <h2>志工預設服務項目管理</h2>
+        <p class="section-desc">
+          設定每位志工固定負責的服務項目與服務內容。之後新增服務紀錄時，選擇志工後會自動帶出這些項目。
+        </p>
 
+        <div class="form-grid">
+          <div class="field-group">
+            <label for="serviceManagerVolunteerSelect">選擇志工</label>
+            <select id="serviceManagerVolunteerSelect">
+              <option value="">請選擇志工</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label>&nbsp;</label>
+            <button type="button" class="btn secondary" id="loadVolunteerServicesBtn">
+              載入 / 重新載入
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>服務項目代碼</th>
+                <th>服務內容代碼</th>
+                <th>排序</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="volunteerServicesTableBody">
+              <tr>
+                <td colspan="4">請先選擇志工並載入服務項目</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="records-actions">
+          <button type="button" class="btn secondary" id="addVolunteerServiceRowBtn">
+            新增一列
+          </button>
+          <button type="button" class="btn primary" id="saveVolunteerServicesBtn">
+            儲存這位志工的服務項目
+          </button>
+        </div>
+
+        <p id="volunteerServicesMessage" class="section-desc"></p>
+        <p id="volunteerServicesError" class="error-message"></p>
+      </section>
       <!-- 新增服務紀錄 -->
       <section class="card">
         <h2>新增服務紀錄</h2>

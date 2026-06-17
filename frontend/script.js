@@ -25,6 +25,9 @@ const volunteerIdErrorEl = document.getElementById("volunteerIdError");
 const recordVolunteerSelect = document.getElementById("recordVolunteerName");
 const recordVolunteerIdInput = document.getElementById("recordVolunteerId");
 
+// 志工預設服務項目管理區：選擇志工
+const serviceManagerVolunteerSelect = document.getElementById("serviceManagerVolunteerSelect");
+
 const recordForm = document.getElementById("record-form");
 const startDateInput = document.getElementById("startDate");
 const endDateInput = document.getElementById("endDate");
@@ -47,6 +50,8 @@ const displayModeInputs = document.querySelectorAll('input[name="displayMode"]')
 // === 資料 ===
 const volunteers = [];
 const records = [];
+// 目前管理區正在編輯的志工預設服務項目
+const volunteerServicesDraft = [];
 let displayMode = "readable";
 let editingVolunteerIndex = null;
 let editingRecordIndex = null;
@@ -545,6 +550,82 @@ async function loadVolunteersFromGSheet() {
 // ============================================================
 // === 登入 + 密碼眼睛切換
 // ============================================================
+function renderVolunteerServicesTable() {
+  if (!volunteerServicesTableBody) return;
+
+  volunteerServicesTableBody.innerHTML = "";
+
+  if (volunteerServicesDraft.length === 0) {
+    volunteerServicesTableBody.innerHTML = `
+      <tr>
+        <td colspan="4">這位志工目前沒有預設服務項目</td>
+      </tr>
+    `;
+    return;
+  }
+
+  volunteerServicesDraft.forEach((service, index) => {
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${padCode4(service.serviceItemCode)}</td>
+      <td>${padCode4(service.serviceContentCode)}</td>
+      <td>${service.sortOrder || index + 1}</td>
+      <td>之後放刪除按鈕</td>
+    `;
+
+    volunteerServicesTableBody.appendChild(tr);
+  });
+}
+
+async function loadVolunteerServicesForManager() {
+  const volunteerId = serviceManagerVolunteerSelect
+    ? serviceManagerVolunteerSelect.value
+    : "";
+
+  setText(volunteerServicesErrorEl, "");
+  setText(volunteerServicesMessageEl, "");
+
+  if (!volunteerId) {
+    setText(volunteerServicesErrorEl, "請先選擇志工。");
+    return;
+  }
+
+  try {
+    const resp = await fetch(
+      `${API_BASE_URL}/api/volunteers/${encodeURIComponent(volunteerId)}/services`,
+      {
+        method: "GET",
+        headers: getAuthHeaders(),
+      }
+    );
+
+    const data = await resp.json();
+
+    if (!resp.ok || !data.ok) {
+      setText(volunteerServicesErrorEl, data.message || "讀取服務項目失敗。");
+      return;
+    }
+
+    volunteerServicesDraft.length = 0;
+
+    const services = Array.isArray(data.services) ? data.services : [];
+
+    services.forEach((service, index) => {
+      volunteerServicesDraft.push({
+        serviceItemCode: padCode4(service.serviceItemCode),
+        serviceContentCode: padCode4(service.serviceContentCode),
+        sortOrder: Number(service.sortOrder || index + 1),
+      });
+    });
+
+    renderVolunteerServicesTable();
+    setText(volunteerServicesMessageEl, `已載入 ${volunteerServicesDraft.length} 筆服務項目。`);
+  } catch (err) {
+    console.error(err);
+    setText(volunteerServicesErrorEl, "無法連線到後端，讀取服務項目失敗。");
+  }
+}
 
 function showApp() { loginSection?.classList.add("hidden"); appSection?.classList.remove("hidden"); }
 function showLogin() { appSection?.classList.add("hidden"); loginSection?.classList.remove("hidden"); }
@@ -745,22 +826,45 @@ function renderVolunteerList() {
 }
 
 function renderVolunteerSelect() {
-  if (!recordVolunteerSelect) return;
-  const prevName = recordVolunteerSelect.value;
-  recordVolunteerSelect.innerHTML = '<option value="">請選擇志工</option>';
-  volunteers.forEach((v) => {
-    const opt = document.createElement("option");
-    opt.value = v.name; opt.textContent = v.name;
-    recordVolunteerSelect.appendChild(opt);
-  });
-  const stillExists = volunteers.some((v) => v.name === prevName);
-  recordVolunteerSelect.value = stillExists ? prevName : "";
-  if (recordVolunteerIdInput) {
-    const matched = volunteers.find((v) => v.name === recordVolunteerSelect.value);
-    recordVolunteerIdInput.value = matched ? matched.id : "";
+  // 新增服務紀錄用：用姓名當 value，因為你原本流程是選姓名後自動帶 ID
+  if (recordVolunteerSelect) {
+    const prevName = recordVolunteerSelect.value;
+
+    recordVolunteerSelect.innerHTML = '<option value="">請選擇志工</option>';
+
+    volunteers.forEach((v) => {
+      const opt = document.createElement("option");
+      opt.value = v.name;
+      opt.textContent = v.name;
+      recordVolunteerSelect.appendChild(opt);
+    });
+
+    const stillExists = volunteers.some((v) => v.name === prevName);
+    recordVolunteerSelect.value = stillExists ? prevName : "";
+
+    if (recordVolunteerIdInput) {
+      const matched = volunteers.find((v) => v.name === recordVolunteerSelect.value);
+      recordVolunteerIdInput.value = matched ? matched.id : "";
+    }
+  }
+
+  // 預設服務項目管理用：用身分證 ID 當 value，之後比較方便呼叫 API
+  if (serviceManagerVolunteerSelect) {
+    const prevId = serviceManagerVolunteerSelect.value;
+
+    serviceManagerVolunteerSelect.innerHTML = '<option value="">請選擇志工</option>';
+
+    volunteers.forEach((v) => {
+      const opt = document.createElement("option");
+      opt.value = v.id;
+      opt.textContent = `${v.name}（${v.id}）`;
+      serviceManagerVolunteerSelect.appendChild(opt);
+    });
+
+    const stillExists = volunteers.some((v) => v.id === prevId);
+    serviceManagerVolunteerSelect.value = stillExists ? prevId : "";
   }
 }
-
 // ============================================================
 // === 志工名單：新增 / 修改 ===
 // ============================================================
@@ -1221,6 +1325,7 @@ function init() {
   initVolunteerForm();
   initVolunteerListActions();
   initVolunteerSelectAutoFill();
+  initVolunteerServicesManager();
   initServiceSelects();
   initPeopleCountPreview();
   initDateConstraints();

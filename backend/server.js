@@ -189,7 +189,76 @@ app.get("/api/volunteers", requireLogin, async (req, res) => {
     });
   }
 });
+// 讀取某位志工的預設服務項目
+app.get("/api/volunteers/:id/services", requireLogin, async (req, res) => {
+  try {
+    const id = String(req.params.id || "").trim().toUpperCase();
 
+    if (!id) {
+      res.status(400).json({
+        ok: false,
+        message: "缺少志工 ID",
+      });
+      return;
+    }
+
+    const data = await callAppsScriptGet({
+      action: "listVolunteerServices",
+      volunteerId: id,
+    });
+
+    res.json({
+      ok: true,
+      services: Array.isArray(data.services) ? data.services : [],
+    });
+  } catch (err) {
+    console.error("讀取志工服務項目失敗：", err.message);
+
+    res.status(500).json({
+      ok: false,
+      message: "讀取志工服務項目失敗",
+    });
+  }
+});
+// 儲存某位志工的預設服務項目
+app.post("/api/volunteers/:id/services", requireLogin, async (req, res) => {
+  try {
+    const id = String(req.params.id || "").trim().toUpperCase();
+    const services = Array.isArray(req.body.services) ? req.body.services : [];
+
+    if (!id) {
+      res.status(400).json({
+        ok: false,
+        message: "缺少志工 ID",
+      });
+      return;
+    }
+
+    const normalizedServices = services.map((service, index) => ({
+      serviceItemCode: String(service.serviceItemCode || "").trim(),
+      serviceContentCode: String(service.serviceContentCode || "").trim(),
+      sortOrder: Number(service.sortOrder || index + 1),
+    }));
+
+    await callAppsScriptPost({
+      action: "saveVolunteerServices",
+      volunteerId: id,
+      services: normalizedServices,
+    });
+
+    res.json({
+      ok: true,
+      count: normalizedServices.length,
+    });
+  } catch (err) {
+    console.error("儲存志工服務項目失敗：", err.message);
+
+    res.status(500).json({
+      ok: false,
+      message: "儲存志工服務項目失敗",
+    });
+  }
+});
 // 新增或更新志工
 app.post("/api/volunteers", requireLogin, async (req, res) => {
   try {
