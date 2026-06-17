@@ -38,6 +38,7 @@ const startDateInput = document.getElementById("startDate");
 const endDateInput = document.getElementById("endDate");
 const serviceItemSelect = document.getElementById("serviceItemSelect");
 const serviceContentSelect = document.getElementById("serviceContentSelect");
+const recordServiceDraftTableBody = document.getElementById("recordServiceDraftTableBody");
 const hoursInput = document.getElementById("hours");
 const minutesInput = document.getElementById("minutes");
 const clientCountInput = document.getElementById("clientCount");
@@ -313,6 +314,38 @@ function toNonNegativeNumberOrZero(valueStr) {
   return n;
 }
 
+function normalizeServiceTime(hours, minutes) {
+  const rawHours = Number(hours || 0);
+  const rawMinutes = Number(minutes || 0);
+
+  if (
+    !Number.isFinite(rawHours) ||
+    !Number.isFinite(rawMinutes) ||
+    rawHours < 0 ||
+    rawMinutes < 0 ||
+    rawMinutes > 59
+  ) {
+    return null;
+  }
+
+  let normalizedHours = Math.floor(rawHours);
+  let normalizedMinutes = 0;
+
+  if (rawMinutes > 30) {
+    normalizedHours += 1;
+    normalizedMinutes = 0;
+  } else if (rawMinutes > 0) {
+    normalizedMinutes = 30;
+  }
+
+  const countedHours = normalizedHours + normalizedMinutes / 60;
+
+  return {
+    hours: normalizedHours,
+    minutes: normalizedMinutes,
+    countedHours,
+  };
+}
 function cleanCellForExcel(value) {
   return String(value ?? "").replace(/\t/g, " ").replace(/\r?\n/g, " ").trim();
 }
@@ -620,8 +653,16 @@ function renderVolunteerServicesTable() {
           data-field="sortOrder"
         />
       </td>
-      <td>之後放刪除按鈕</td>
-    `;
+<td>
+  <button
+    type="button"
+    class="btn btn-small btn-danger"
+    data-action="deleteVolunteerService"
+    data-index="${index}"
+  >
+    刪除
+  </button>
+</td>    `;
 
     volunteerServicesTableBody.appendChild(tr);
   });
@@ -657,6 +698,27 @@ function renderVolunteerServicesTable() {
       }
     });
   });
+  volunteerServicesTableBody.querySelectorAll('[data-action="deleteVolunteerService"]').forEach((button) => {
+  button.addEventListener("click", async function () {
+    const index = Number(button.dataset.index);
+
+    if (Number.isNaN(index) || !volunteerServicesDraft[index]) return;
+
+    const ok = await showConfirm("確定要刪除這一列服務項目嗎？", "刪除", "取消");
+    if (!ok) return;
+
+    volunteerServicesDraft.splice(index, 1);
+
+    // 重新整理排序，讓畫面順序變乾淨
+    volunteerServicesDraft.forEach((service, i) => {
+      service.sortOrder = i + 1;
+    });
+
+    renderVolunteerServicesTable();
+    setText(volunteerServicesMessageEl, "已刪除一列，記得按儲存才會寫入 Google Sheet。");
+    setText(volunteerServicesErrorEl, "");
+  });
+});
 }
 async function loadVolunteerServicesForManager() {
   const volunteerId = serviceManagerVolunteerSelect
@@ -759,6 +821,160 @@ async function saveVolunteerServicesForManager() {
     console.error(err);
     setText(volunteerServicesErrorEl, "無法連線到後端，儲存服務項目失敗。");
   }
+}
+async function loadVolunteerServicesForRecord(volunteerId) {
+  if (!volunteerId) return [];
+
+  try {
+    const resp = await fetch(
+      `${API_BASE_URL}/api/volunteers/${encodeURIComponent(volunteerId)}/services`,
+      {
+        method: "GET",
+        headers: getAuthHeaders(),
+      }
+    );
+
+    const data = await resp.json();
+
+    if (!resp.ok || !data.ok) {
+      showToast(data.message || "讀取志工預設服務項目失敗", "error");
+      return [];
+    }
+
+    return Array.isArray(data.services) ? data.services : [];
+  } catch (err) {
+    console.error(err);
+    showToast("無法連線到後端，讀取志工預設服務項目失敗", "error");
+    return [];
+  }
+}
+function renderRecordServiceDraftTable(services) {
+  if (!recordServiceDraftTableBody) return;
+
+  recordServiceDraftTableBody.innerHTML = "";
+
+  if (!services || services.length === 0) {
+    recordServiceDraftTableBody.innerHTML = `
+      <tr>
+        <td colspan="10">這位志工目前沒有預設服務項目</td>
+      </tr>
+    `;
+    return;
+  }
+
+  services.forEach((service, index) => {
+    const serviceItemCode = padCode4(service.serviceItemCode);
+    const serviceContentCode = padCode4(service.serviceContentCode);
+
+    const serviceItemLabel = getServiceItemLabel(serviceItemCode);
+    const serviceContentLabel = getServiceContentLabel(serviceItemCode, serviceContentCode);
+
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${serviceItemCode} - ${serviceItemLabel || "未知服務項目"}</td>
+      <td>${serviceContentCode} - ${serviceContentLabel || "未知服務內容"}</td>
+
+      <td>
+        <input type="date" data-index="${index}" data-field="startDate" />
+      </td>
+
+      <td>
+        <input type="date" data-index="${index}" data-field="endDate" />
+      </td>
+
+      <td>
+        <input type="number" min="0" step="1" value="0" data-index="${index}" data-field="hours" />
+      </td>
+
+      <td>
+        <input type="number" min="0" max="59" step="1" value="0" data-index="${index}" data-field="minutes" />
+      </td>
+
+      <td>
+        <input type="number" min="0" step="1" value="0" data-index="${index}" data-field="clientCount" />
+      </td>
+
+      <td>
+        <input type="text" readonly value="" data-index="${index}" data-field="peopleCount" />
+      </td>
+
+      <td>
+        <input type="number" min="0" step="1" value="0" data-index="${index}" data-field="trafficFee" />
+      </td>
+
+      <td>
+        <input type="number" min="0" step="1" value="0" data-index="${index}" data-field="mealFee" />
+      </td>
+    `;
+
+    recordServiceDraftTableBody.appendChild(tr);
+  });
+
+  function updateRowPeopleCount(index, shouldFixTime) {
+    const hoursEl = recordServiceDraftTableBody.querySelector(
+      `input[data-index="${index}"][data-field="hours"]`
+    );
+    const minutesEl = recordServiceDraftTableBody.querySelector(
+      `input[data-index="${index}"][data-field="minutes"]`
+    );
+    const clientCountEl = recordServiceDraftTableBody.querySelector(
+      `input[data-index="${index}"][data-field="clientCount"]`
+    );
+    const peopleCountEl = recordServiceDraftTableBody.querySelector(
+      `input[data-index="${index}"][data-field="peopleCount"]`
+    );
+
+    if (!peopleCountEl) return;
+
+    const hours = Number(hoursEl?.value || 0);
+    const minutes = Number(minutesEl?.value || 0);
+    const clientCount = Number(clientCountEl?.value || 0);
+
+    const normalizedTime = normalizeServiceTime(hours, minutes);
+
+    if (!normalizedTime) {
+      peopleCountEl.value = "";
+      return;
+    }
+
+    // 離開小時 / 分鐘欄位時，把 20 → 30、31 → 小時+1 分鐘0
+    if (shouldFixTime) {
+      if (hoursEl) hoursEl.value = String(normalizedTime.hours);
+      if (minutesEl) minutesEl.value = String(normalizedTime.minutes);
+    }
+
+    if (
+      !Number.isFinite(clientCount) ||
+      clientCount < 0 ||
+      normalizedTime.countedHours <= 0
+    ) {
+      peopleCountEl.value = "";
+      return;
+    }
+
+    peopleCountEl.value = String(
+      Math.round(clientCount * normalizedTime.countedHours)
+    );
+  }
+
+  recordServiceDraftTableBody
+    .querySelectorAll(
+      'input[data-field="hours"], input[data-field="minutes"], input[data-field="clientCount"]'
+    )
+    .forEach((input) => {
+      input.addEventListener("input", function () {
+        updateRowPeopleCount(input.dataset.index, false);
+      });
+    });
+
+  recordServiceDraftTableBody
+    .querySelectorAll('input[data-field="hours"], input[data-field="minutes"]')
+    .forEach((input) => {
+      input.addEventListener("change", function () {
+        updateRowPeopleCount(input.dataset.index, true);
+      });
+    });
 }
 function initVolunteerServicesManager() {
   if (loadVolunteerServicesBtn) {
@@ -1123,9 +1339,46 @@ function initVolunteerListActions() {
 
 function initVolunteerSelectAutoFill() {
   if (!recordVolunteerSelect) return;
-  recordVolunteerSelect.addEventListener("change", function () {
+
+  recordVolunteerSelect.addEventListener("change", async function () {
     const matched = volunteers.find((v) => v.name === recordVolunteerSelect.value);
-    if (recordVolunteerIdInput) recordVolunteerIdInput.value = matched ? matched.id : "";
+    const volunteerId = matched ? matched.id : "";
+
+    if (recordVolunteerIdInput) {
+      recordVolunteerIdInput.value = volunteerId;
+    }
+
+    if (!volunteerId) {
+    if (serviceItemSelect) serviceItemSelect.value = "";
+    renderServiceContentOptions("");
+    renderRecordServiceDraftTable([]);
+    return;
+    }
+
+    const services = await loadVolunteerServicesForRecord(volunteerId);
+
+    if (services.length === 0) {
+      showToast("這位志工目前沒有設定預設服務項目", "warning");
+      if (serviceItemSelect) serviceItemSelect.value = "";
+      renderServiceContentOptions("");
+      return;
+    }
+    renderRecordServiceDraftTable(services);
+    const firstService = services[0];
+    const serviceItemCode = padCode4(firstService.serviceItemCode);
+    const serviceContentCode = padCode4(firstService.serviceContentCode);
+
+    if (serviceItemSelect) {
+      serviceItemSelect.value = serviceItemCode;
+    }
+
+    renderServiceContentOptions(serviceItemCode);
+
+    if (serviceContentSelect) {
+      serviceContentSelect.value = serviceContentCode;
+    }
+
+    showToast(`已帶入第 1 筆預設服務項目，共 ${services.length} 筆`, "success");
   });
 }
 
