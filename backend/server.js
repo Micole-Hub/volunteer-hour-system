@@ -185,10 +185,11 @@ app.get("/api/volunteers", requireLogin, async (req, res) => {
 
     res.status(500).json({
       ok: false,
-      message: "讀取志工名單失敗",
+      message: err.message || "讀取志工名單失敗",
     });
   }
 });
+
 // 讀取某位志工的預設服務項目
 app.get("/api/volunteers/:id/services", requireLogin, async (req, res) => {
   try {
@@ -216,10 +217,11 @@ app.get("/api/volunteers/:id/services", requireLogin, async (req, res) => {
 
     res.status(500).json({
       ok: false,
-      message: "讀取志工服務項目失敗",
+      message: err.message || "讀取志工服務項目失敗",
     });
   }
 });
+
 // 儲存某位志工的預設服務項目
 app.post("/api/volunteers/:id/services", requireLogin, async (req, res) => {
   try {
@@ -234,11 +236,13 @@ app.post("/api/volunteers/:id/services", requireLogin, async (req, res) => {
       return;
     }
 
-    const normalizedServices = services.map((service, index) => ({
-      serviceItemCode: String(service.serviceItemCode || "").trim(),
-      serviceContentCode: String(service.serviceContentCode || "").trim(),
-      sortOrder: Number(service.sortOrder || index + 1),
-    }));
+    const normalizedServices = services
+      .map((service, index) => ({
+        serviceItemCode: String(service.serviceItemCode || "").trim(),
+        serviceContentCode: String(service.serviceContentCode || "").trim(),
+        sortOrder: Number(service.sortOrder || index + 1),
+      }))
+      .filter((service) => service.serviceItemCode && service.serviceContentCode);
 
     await callAppsScriptPost({
       action: "saveVolunteerServices",
@@ -255,15 +259,17 @@ app.post("/api/volunteers/:id/services", requireLogin, async (req, res) => {
 
     res.status(500).json({
       ok: false,
-      message: "儲存志工服務項目失敗",
+      message: err.message || "儲存志工服務項目失敗",
     });
   }
 });
+
 // 新增或更新志工
 app.post("/api/volunteers", requireLogin, async (req, res) => {
   try {
     const name = String(req.body.name || "").trim();
     const id = String(req.body.id || "").trim().toUpperCase();
+    const oldId = String(req.body.oldId || req.body.previousId || "").trim().toUpperCase();
 
     if (!name || !id) {
       res.status(400).json({
@@ -273,21 +279,24 @@ app.post("/api/volunteers", requireLogin, async (req, res) => {
       return;
     }
 
-    await callAppsScriptPost({
+    const data = await callAppsScriptPost({
       action: "upsert",
       name,
       id,
+      oldId,
     });
 
     res.json({
       ok: true,
+      action: data.action || "upserted",
+      updatedServiceCount: Number(data.updatedServiceCount || 0),
     });
   } catch (err) {
     console.error("新增或更新志工失敗：", err.message);
 
     res.status(500).json({
       ok: false,
-      message: "新增或更新志工失敗",
+      message: err.message || "新增或更新志工失敗",
     });
   }
 });
@@ -305,20 +314,22 @@ app.delete("/api/volunteers/:id", requireLogin, async (req, res) => {
       return;
     }
 
-    await callAppsScriptPost({
+    const data = await callAppsScriptPost({
       action: "delete",
       id,
     });
 
     res.json({
       ok: true,
+      action: data.action || "deleted",
+      deletedServiceCount: Number(data.deletedServiceCount || 0),
     });
   } catch (err) {
     console.error("刪除志工失敗：", err.message);
 
     res.status(500).json({
       ok: false,
-      message: "刪除志工失敗",
+      message: err.message || "刪除志工失敗",
     });
   }
 });

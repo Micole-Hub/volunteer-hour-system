@@ -538,12 +538,21 @@ async function sendVolunteerToGSheet(vol) {
       body: JSON.stringify({
         name: vol.name,
         id: vol.id,
+        oldId: vol.oldId || "",
       }),
     });
 
-    if (!resp.ok) {
-      console.warn("新增或更新志工到後端失敗");
-      showToast("志工資料同步到後端失敗", "error");
+    let data = {};
+    try {
+      data = await resp.json();
+    } catch {
+      data = {};
+    }
+
+    if (!resp.ok || data.ok === false) {
+      const message = data.message || "志工資料同步到後端失敗";
+      console.warn("新增或更新志工到後端失敗：", message);
+      showToast(message, "error");
       return false;
     }
 
@@ -1829,42 +1838,123 @@ function renderVolunteerSelect() {
 // === 志工名單：新增 / 修改 ===
 // ============================================================
 
+function updateLocalRecordsVolunteerIdentity(oldId, updatedVolunteer) {
+  const targetOldId = String(oldId || "").trim().toUpperCase();
+  const nextName = String(updatedVolunteer?.name || "").trim();
+  const nextId = String(updatedVolunteer?.id || "").trim().toUpperCase();
+
+  if (!targetOldId || !nextName || !nextId) {
+    return 0;
+  }
+
+  let updatedCount = 0;
+
+  records.forEach((record) => {
+    const recordId = String(record.id || "").trim().toUpperCase();
+
+    if (recordId === targetOldId) {
+      record.name = nextName;
+      record.id = nextId;
+      updatedCount += 1;
+    }
+  });
+
+  return updatedCount;
+}
+
+function updateBatchDraftVolunteerIdentity(oldId, updatedVolunteer) {
+  const targetOldId = String(oldId || "").trim().toUpperCase();
+  const nextName = String(updatedVolunteer?.name || "").trim();
+  const nextId = String(updatedVolunteer?.id || "").trim().toUpperCase();
+
+  if (!targetOldId || !nextName || !nextId) {
+    return 0;
+  }
+
+  let updatedCount = 0;
+
+  batchDraftRows.forEach((row) => {
+    const rowId = String(row.id || "").trim().toUpperCase();
+
+    if (rowId === targetOldId) {
+      row.name = nextName;
+      row.id = nextId;
+      updatedCount += 1;
+    }
+  });
+
+  if (updatedCount > 0) {
+    renderBatchPreviewTable();
+  }
+
+  return updatedCount;
+}
+
 function initVolunteerForm() {
   if (!volunteerForm) return;
+
   volunteerForm.addEventListener("submit", async function (event) {
     event.preventDefault();
+
     const name = trimValue(volunteerNameInput);
     const id = trimValue(volunteerIdInput).toUpperCase();
-    if (!name || !id) { showToast("請輸入完整的志工姓名與身分證字號", "warning"); return; }
+    const oldId = editingVolunteerIndex !== null && volunteers[editingVolunteerIndex]
+      ? String(volunteers[editingVolunteerIndex].id || "").trim().toUpperCase()
+      : "";
+
+    if (!name || !id) {
+      showToast("請輸入完整的志工姓名與身分證字號", "warning");
+      return;
+    }
+
     if (!isValidTaiwanId(id)) {
       setText(volunteerIdErrorEl, "身分證格式：1 英文字母 + 9 數字（例 A123456789）");
       showToast("身分證格式不正確", "error");
       return;
     }
+
     setText(volunteerIdErrorEl, "");
+
     const exists = volunteers.some((v, idx) => {
       if (editingVolunteerIndex !== null && idx === editingVolunteerIndex) return false;
-      return v.id === id;
+      return String(v.id || "").trim().toUpperCase() === id;
     });
-    if (exists) { showToast("此身分證字號已在志工名單中", "warning"); return; }
+
+    if (exists) {
+      showToast("此身分證字號已在志工名單中", "warning");
+      return;
+    }
+
+    const syncOk = await sendVolunteerToGSheet({ name, id, oldId });
+
+    if (!syncOk) {
+      return;
+    }
+
     if (editingVolunteerIndex === null) {
       volunteers.push({ name, id });
       showToast(`已新增志工「${name}」`, "success");
     } else {
+      const updatedRecordCount = updateLocalRecordsVolunteerIdentity(oldId, { name, id });
+      updateBatchDraftVolunteerIdentity(oldId, { name, id });
+
       volunteers[editingVolunteerIndex].name = name;
       volunteers[editingVolunteerIndex].id = id;
+
+      if (updatedRecordCount > 0) {
+        saveRecordsToStorage();
+        renderRecordsTable();
+      }
+
       showToast(`已更新志工「${name}」的資料`, "success");
     }
+
     saveVolunteersToStorage();
     renderVolunteerList();
     renderVolunteerSelect();
     exitVolunteerEditMode();
 
-    const syncOk = await sendVolunteerToGSheet({ name, id });
-
-    if (syncOk) {
-      await loadVolunteersFromGSheet();
-    }
+    await loadVolunteersFromGSheet();
   });
 }
 
