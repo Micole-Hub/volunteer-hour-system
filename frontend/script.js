@@ -1014,7 +1014,68 @@ function getDraftRowValue(row, field) {
   const input = getDraftRowInput(row, field);
   return input ? String(input.value || "").trim() : "";
 }
+function isDraftRowEmpty(row) {
+  const startDate = getDraftRowValue(row, "startDate");
+  const endDate = getDraftRowValue(row, "endDate");
 
+  const hours = Number(getDraftRowValue(row, "hours") || 0);
+  const minutes = Number(getDraftRowValue(row, "minutes") || 0);
+  const clientCount = Number(getDraftRowValue(row, "clientCount") || 0);
+  const trafficFee = Number(getDraftRowValue(row, "trafficFee") || 0);
+  const mealFee = Number(getDraftRowValue(row, "mealFee") || 0);
+
+  // 完全沒有日期，也沒有任何有效數字，才算空白列
+  return (
+    !startDate &&
+    !endDate &&
+    hours === 0 &&
+    minutes === 0 &&
+    clientCount === 0 &&
+    trafficFee === 0 &&
+    mealFee === 0
+  );
+}
+
+function resetDraftTableRowsAfterSubmit() {
+  if (!recordServiceDraftTableBody) return;
+
+  const rows = recordServiceDraftTableBody.querySelectorAll("tr");
+
+  rows.forEach((row) => {
+    const startInput = row.querySelector('[data-field="startDate"]');
+    const endInput = row.querySelector('[data-field="endDate"]');
+    const hoursInput = row.querySelector('[data-field="hours"]');
+    const minutesInput = row.querySelector('[data-field="minutes"]');
+    const clientCountInput = row.querySelector('[data-field="clientCount"]');
+    const peopleCountInput = row.querySelector('[data-field="peopleCount"]');
+    const trafficFeeInput = row.querySelector('[data-field="trafficFee"]');
+    const mealFeeInput = row.querySelector('[data-field="mealFee"]');
+
+    if (startInput) {
+      startInput.value = "";
+      startInput.max = getTodayLocalYYYYMMDD();
+      startInput.disabled = false;
+    }
+
+    if (endInput) {
+      endInput.value = "";
+      endInput.min = "";
+      endInput.max = "";
+      endInput.disabled = true;
+    }
+
+    [hoursInput, minutesInput, clientCountInput, trafficFeeInput, mealFeeInput].forEach((input) => {
+      if (!input) return;
+
+      input.value = "";
+      input.disabled = true;
+    });
+
+    if (peopleCountInput) {
+      peopleCountInput.value = "";
+    }
+  });
+}
 function getLastDateOfMonthFromIsoDate(isoDateStr) {
   const date = parseIsoDateToDate(isoDateStr);
   if (!date) return "";
@@ -1313,7 +1374,7 @@ function buildRecordsFromDraftTableRows(name, id) {
   for (const [index, row] of rows.entries()) {
     const rowNumber = index + 1;
 
-    // 完全空白的列先略過，避免沒服務的項目也被迫新增
+    // 完全空白的列直接略過，不新增、不報錯
     if (isDraftRowEmpty(row)) {
       continue;
     }
@@ -1322,38 +1383,19 @@ function buildRecordsFromDraftTableRows(name, id) {
     const serviceContentCode = padCode4(row.dataset.serviceContentCode);
 
     const startDate = getDraftRowValue(row, "startDate");
-    let endDate = getDraftRowValue(row, "endDate");
+    const endDate = getDraftRowValue(row, "endDate");
 
-    if (!startDate) {
+    if (!startDate || !endDate) {
       return {
         ok: false,
-        message: `第 ${rowNumber} 列請填寫服務日期起。`,
+        message: `第 ${rowNumber} 列請先選擇服務日期。`,
       };
     }
 
-    if (startDate > todayStr) {
+    if (startDate > todayStr || endDate > todayStr) {
       return {
         ok: false,
-        message: `第 ${rowNumber} 列的服務日期起不可是未來日期。`,
-      };
-    }
-
-    // 如果結束日期空白，依開始日期自動補同月份最後一天，但不可超過今天
-    if (!endDate) {
-      const lastDateOfMonth = getLastDateOfMonthFromIsoDate(startDate);
-      endDate = lastDateOfMonth <= todayStr ? lastDateOfMonth : todayStr;
-      const endDateInput = getDraftRowInput(row, "endDate");
-      if (endDateInput) {
-        endDateInput.min = startDate;
-        endDateInput.max = endDate;
-        endDateInput.value = endDate;
-      }
-    }
-
-    if (endDate > todayStr) {
-      return {
-        ok: false,
-        message: `第 ${rowNumber} 列的服務日期迄不可是未來日期。`,
+        message: `第 ${rowNumber} 列的服務日期不可是未來日期。`,
       };
     }
 
@@ -1396,7 +1438,7 @@ function buildRecordsFromDraftTableRows(name, id) {
     if (!normalizedTime || normalizedTime.countedHours <= 0) {
       return {
         ok: false,
-        message: `第 ${rowNumber} 列的服務時數不能是 0。`,
+        message: `第 ${rowNumber} 列請填寫服務時數。`,
       };
     }
 
@@ -1421,9 +1463,6 @@ function buildRecordsFromDraftTableRows(name, id) {
       };
     }
 
-    // 送出前也把畫面整理成正式規則，避免畫面和紀錄不一致
-    updateDraftRowPeopleCount(row, { normalizeInputs: true });
-
     newRecords.push({
       name,
       id,
@@ -1432,7 +1471,7 @@ function buildRecordsFromDraftTableRows(name, id) {
       serviceItemCode,
       serviceContentCode,
 
-      // 寫進 records 的永遠是整理後時數
+      // 寫進 records 的是整理後時數
       hours: normalizedTime.hours,
       minutes: normalizedTime.minutes,
 
@@ -2114,22 +2153,18 @@ function initRecordForm() {
 
       records.push(...result.records);
 
-      saveRecordsToStorage();
-      renderRecordsTable();
+        saveRecordsToStorage();
+        renderRecordsTable();
 
-      showToast(`已新增 ${result.records.length} 筆服務紀錄`, "success");
+        showToast(`已新增 ${result.records.length} 筆服務紀錄`, "success");
 
-      setText(recordErrorEl, "");
+        setText(recordErrorEl, "");
 
-      // 先不清空多列表格，方便你檢查新增結果
-      return;
-    }
+        // 新增成功後，清空多列表格並鎖回欄位
+        resetDraftTableRowsAfterSubmit();
 
-    // 以下保留舊單筆新增 / 編輯流程
-    if (!startDate || !endDate) {
-      setText(recordErrorEl, "請填寫服務起訖日期。");
-      return;
-    }
+        return;
+      }
 
     if (endDate < startDate) {
       setText(recordErrorEl, "服務日期迄不能早於服務日期起。");
