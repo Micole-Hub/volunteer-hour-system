@@ -42,11 +42,33 @@ const copyTableBtn = document.getElementById("copyTableBtn") || document.getElem
 const clearRecordsBtn = document.getElementById("clearRecordsBtn");
 const displayModeInputs = document.querySelectorAll('input[name="displayMode"]');
 
+// 多人批次新增區
+const batchToggleBtn = document.getElementById("batchToggleBtn");
+const batchPanel = document.getElementById("batchPanel");
+const batchForm = document.getElementById("batch-form");
+const batchStartDateInput = document.getElementById("batchStartDate");
+const batchEndDateInput = document.getElementById("batchEndDate");
+const batchServiceItemSelect = document.getElementById("batchServiceItemSelect");
+const batchServiceContentSelect = document.getElementById("batchServiceContentSelect");
+const batchHoursInput = document.getElementById("batchHours");
+const batchMinutesInput = document.getElementById("batchMinutes");
+const batchClientCountInput = document.getElementById("batchClientCount");
+const batchTrafficFeeInput = document.getElementById("batchTrafficFee");
+const batchMealFeeInput = document.getElementById("batchMealFee");
+const batchVolunteerChecklist = document.getElementById("batchVolunteerChecklist");
+const batchSelectAllCheckbox = document.getElementById("batchSelectAll");
+const batchClearSelectedBtn = document.getElementById("batchClearSelectedBtn");
+const batchBuildPreviewBtn = document.getElementById("batchBuildPreviewBtn");
+const batchClearDraftBtn = document.getElementById("batchClearDraftBtn");
+const batchPreviewTableBody = document.getElementById("batchPreviewTableBody");
+const batchErrorEl = document.getElementById("batchError");
+
 // === 資料 ===
 const volunteers = [];
 const records = [];
 // 目前管理區正在編輯的志工預設服務項目
 const volunteerServicesDraft = [];
+const batchDraftRows = [];
 let displayMode = "readable";
 let editingVolunteerIndex = null;
 
@@ -300,6 +322,66 @@ function toNonNegativeNumberOrZero(valueStr) {
   const n = Number(s);
   if (!Number.isFinite(n) || n < 0) return NaN;
   return n;
+}
+
+function sanitizeNonNegativeIntegerInput(input, maxValue = null) {
+  if (!input) return;
+
+  const rawValue = String(input.value || "").trim();
+
+  if (rawValue === "") {
+    return;
+  }
+
+  let value = Number(rawValue);
+
+  if (!Number.isFinite(value)) {
+    input.value = "";
+    return;
+  }
+
+  value = Math.floor(value);
+
+  if (value < 0) {
+    value = 0;
+  }
+
+  if (typeof maxValue === "number" && value > maxValue) {
+    value = maxValue;
+  }
+
+  input.value = String(value);
+}
+
+function sanitizeMinutesInput(input) {
+  sanitizeNonNegativeIntegerInput(input, 59);
+}
+
+function normalizeTimeInputsIfPossible(hoursInput, minutesInput) {
+  if (!hoursInput || !minutesInput) return null;
+
+  const hasHours = String(hoursInput.value || "").trim() !== "";
+  const hasMinutes = String(minutesInput.value || "").trim() !== "";
+
+  if (!hasHours && !hasMinutes) {
+    return null;
+  }
+
+  sanitizeNonNegativeIntegerInput(hoursInput);
+  sanitizeMinutesInput(minutesInput);
+
+  const hours = toNonNegativeIntOrZero(hoursInput.value);
+  const minutes = toNonNegativeIntOrZero(minutesInput.value);
+  const normalizedTime = normalizeServiceTime(hours, minutes);
+
+  if (!normalizedTime) {
+    return null;
+  }
+
+  hoursInput.value = String(normalizedTime.hours);
+  minutesInput.value = String(normalizedTime.minutes);
+
+  return normalizedTime;
 }
 
 function normalizeServiceTime(hours, minutes) {
@@ -842,8 +924,11 @@ async function saveVolunteerServicesForManager() {
     setText(volunteerServicesMessageEl, `已儲存 ${services.length} 筆服務項目。`);
     showToast("志工預設服務項目已儲存", "success");
 
-    // 儲存後重新載入一次，確認畫面跟 Google Sheet 同步
+    // 儲存後重新載入一次，確認管理區畫面跟 Google Sheet 同步
     await loadVolunteerServicesForManager();
+
+    // 如果「新增服務紀錄」目前選的就是同一位志工，也同步更新上方多列表格
+    await refreshRecordDraftTableIfCurrentVolunteer(volunteerId);
   } catch (err) {
     console.error(err);
     setText(volunteerServicesErrorEl, "無法連線到後端，儲存服務項目失敗。");
@@ -1135,6 +1220,10 @@ function updateDraftRowPeopleCount(row, options = {}) {
     return;
   }
 
+  sanitizeNonNegativeIntegerInput(hoursInput);
+  sanitizeMinutesInput(minutesInput);
+  sanitizeNonNegativeIntegerInput(clientCountInput);
+
   const hours = toNonNegativeIntOrZero(hoursInput.value);
   const minutes = toNonNegativeIntOrZero(minutesInput.value);
   const clientCount = toNonNegativeIntOrZero(clientCountInput.value);
@@ -1225,6 +1314,12 @@ function bindRecordDraftRowEvents(row) {
     if (!input) return;
 
     input.addEventListener("input", function () {
+      if (field === "minutes") {
+        sanitizeMinutesInput(input);
+      } else {
+        sanitizeNonNegativeIntegerInput(input);
+      }
+
       if (!isValidDraftRowDateRange(row)) {
         updateDraftRowInputLock(row, { clearWhenLocked: true });
         showToast("請先選擇服務日期，才能填寫時數與人數。", "warning");
@@ -1465,6 +1560,41 @@ function findDuplicateRecordInNewRecords(newRecords) {
   return null;
 }
 
+function isRecordDraftTableDirty() {
+  if (!recordServiceDraftTableBody) return false;
+
+  const rows = Array.from(recordServiceDraftTableBody.querySelectorAll("tr"))
+    .filter((row) => row.dataset.serviceItemCode && row.dataset.serviceContentCode);
+
+  return rows.some((row) => !isDraftRowEmpty(row));
+}
+
+async function refreshRecordDraftTableIfCurrentVolunteer(volunteerId) {
+  if (!recordVolunteerSelect || !recordServiceDraftTableBody) return;
+
+  const selectedVolunteer = volunteers.find((v) => v.name === recordVolunteerSelect.value);
+
+  if (!selectedVolunteer || selectedVolunteer.id !== volunteerId) {
+    return;
+  }
+
+  if (isRecordDraftTableDirty()) {
+    showToast("新增服務紀錄區已有尚未送出的資料，先不自動更新服務項目，避免覆蓋草稿。", "warning");
+    setText(recordErrorEl, "志工預設服務項目已儲存，但目前新增服務紀錄區有尚未送出的資料。請先新增或清空後，再重新選擇志工載入最新服務項目。");
+    return;
+  }
+
+  const latestServices = await loadVolunteerServicesForRecord(volunteerId);
+  renderRecordServiceDraftTable(latestServices);
+
+  if (latestServices.length === 0) {
+    showToast("新增服務紀錄區已同步更新：這位志工目前沒有預設服務項目。", "warning");
+    return;
+  }
+
+  showToast(`新增服務紀錄區已同步更新 ${latestServices.length} 筆服務項目`, "success");
+}
+
 function initVolunteerServicesManager() {
   if (loadVolunteerServicesBtn) {
     loadVolunteerServicesBtn.addEventListener("click", function () {
@@ -1692,6 +1822,8 @@ function renderVolunteerSelect() {
     const stillExists = volunteers.some((v) => v.id === prevId);
     serviceManagerVolunteerSelect.value = stillExists ? prevId : "";
   }
+
+  renderBatchVolunteerChecklist();
 }
 // ============================================================
 // === 志工名單：新增 / 修改 ===
@@ -1918,11 +2050,27 @@ async function editRecordInDraftTable(index) {
     recordVolunteerIdInput.value = record.id || "";
   }
 
-  const services = await loadVolunteerServicesForRecord(record.id);
+  let services = await loadVolunteerServicesForRecord(record.id);
+  services = Array.isArray(services) ? services : [];
 
-  if (!services || services.length === 0) {
-    showToast("這位志工目前沒有預設服務項目，無法帶回多列表格編輯", "error");
-    return;
+  const hasRecordService = services.some((service) => {
+    return (
+      padCode4(service.serviceItemCode) === padCode4(record.serviceItemCode) &&
+      padCode4(service.serviceContentCode) === padCode4(record.serviceContentCode)
+    );
+  });
+
+  // 多人批次新增的紀錄不一定是志工固定服務項目。
+  // 編輯時只暫時把這個服務項目加到畫面，不會寫入志工預設服務項目。
+  if (!hasRecordService) {
+    services = [
+      {
+        serviceItemCode: padCode4(record.serviceItemCode),
+        serviceContentCode: padCode4(record.serviceContentCode),
+        sortOrder: 0,
+      },
+      ...services,
+    ];
   }
 
   renderRecordServiceDraftTable(services);
@@ -2111,6 +2259,680 @@ function initRecordForm() {
 }
 
 
+
+// ============================================================
+// === 多人批次新增服務紀錄 ===
+// ============================================================
+
+function renderBatchServiceItemOptions() {
+  if (!batchServiceItemSelect) return;
+
+  batchServiceItemSelect.innerHTML = '<option value="">請選擇服務項目</option>';
+
+  SERVICE_ITEMS.forEach((item) => {
+    const opt = document.createElement("option");
+    opt.value = padCode4(item.code);
+    opt.textContent = `${padCode4(item.code)} - ${item.label}`;
+    batchServiceItemSelect.appendChild(opt);
+  });
+
+  renderBatchServiceContentOptions("");
+}
+
+function renderBatchServiceContentOptions(itemCode) {
+  if (!batchServiceContentSelect) return;
+
+  batchServiceContentSelect.innerHTML = "";
+
+  if (!itemCode || !SERVICE_CONTENTS_BY_ITEM[itemCode]) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "請先選擇服務項目";
+    batchServiceContentSelect.appendChild(opt);
+    batchServiceContentSelect.disabled = true;
+    return;
+  }
+
+  const ph = document.createElement("option");
+  ph.value = "";
+  ph.textContent = "請選擇服務內容";
+  batchServiceContentSelect.appendChild(ph);
+
+  SERVICE_CONTENTS_BY_ITEM[itemCode].forEach((content) => {
+    const opt = document.createElement("option");
+    opt.value = padCode4(content.code);
+    opt.textContent = `${padCode4(content.code)} - ${content.label}`;
+    batchServiceContentSelect.appendChild(opt);
+  });
+
+  batchServiceContentSelect.disabled = false;
+}
+
+function renderBatchVolunteerChecklist() {
+  if (!batchVolunteerChecklist) return;
+
+  batchVolunteerChecklist.innerHTML = "";
+
+  if (!volunteers || volunteers.length === 0) {
+    batchVolunteerChecklist.innerHTML = '<p class="section-desc" style="margin:0;">尚未建立志工名單</p>';
+    if (batchSelectAllCheckbox) batchSelectAllCheckbox.checked = false;
+    return;
+  }
+
+  const list = document.createElement("div");
+  list.style.cssText = `
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap:0.45rem 0.8rem;
+  `;
+
+  volunteers.forEach((v) => {
+    const label = document.createElement("label");
+    label.style.cssText = "display:flex;align-items:center;gap:0.4rem;font-size:0.9rem;line-height:1.5;";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "batch-volunteer-checkbox";
+    checkbox.value = v.id;
+
+    const text = document.createElement("span");
+    text.textContent = `${v.name}（${v.id}）`;
+
+    label.appendChild(checkbox);
+    label.appendChild(text);
+    list.appendChild(label);
+  });
+
+  batchVolunteerChecklist.appendChild(list);
+
+  if (batchSelectAllCheckbox) batchSelectAllCheckbox.checked = false;
+}
+
+function getCheckedBatchVolunteers() {
+  if (!batchVolunteerChecklist) return [];
+
+  const checkedIds = Array.from(
+    batchVolunteerChecklist.querySelectorAll(".batch-volunteer-checkbox:checked")
+  ).map((checkbox) => checkbox.value);
+
+  return volunteers.filter((v) => checkedIds.includes(v.id));
+}
+
+function updateBatchEndDateConstraints() {
+  if (!batchStartDateInput || !batchEndDateInput) return;
+
+  const todayStr = getTodayLocalYYYYMMDD();
+  batchStartDateInput.max = todayStr;
+  batchEndDateInput.max = todayStr;
+
+  let startDate = batchStartDateInput.value;
+
+  if (!startDate) {
+    batchEndDateInput.value = "";
+    batchEndDateInput.min = "";
+    batchEndDateInput.max = todayStr;
+    return;
+  }
+
+  if (startDate > todayStr) {
+    batchStartDateInput.value = todayStr;
+    startDate = todayStr;
+    showToast("服務日期起不可大於今天，已自動調整。", "warning");
+  }
+
+  const lastDateOfMonth = getLastDateOfMonthFromIsoDate(startDate);
+  const maxEndDate = lastDateOfMonth <= todayStr ? lastDateOfMonth : todayStr;
+
+  batchEndDateInput.min = startDate;
+  batchEndDateInput.max = maxEndDate;
+
+  if (
+    !batchEndDateInput.value ||
+    batchEndDateInput.value < startDate ||
+    batchEndDateInput.value > maxEndDate ||
+    batchEndDateInput.value.slice(0, 7) !== startDate.slice(0, 7)
+  ) {
+    batchEndDateInput.value = maxEndDate;
+  }
+}
+
+function validateBatchCommonInputs() {
+  const startDate = batchStartDateInput ? batchStartDateInput.value : "";
+  const endDate = batchEndDateInput ? batchEndDateInput.value : "";
+  const serviceItemCode = batchServiceItemSelect ? padCode4(batchServiceItemSelect.value) : "";
+  const serviceContentCode = batchServiceContentSelect ? padCode4(batchServiceContentSelect.value) : "";
+  const todayStr = getTodayLocalYYYYMMDD();
+
+  if (!startDate || !endDate) {
+    return { ok: false, message: "請填寫服務日期起與服務日期迄。" };
+  }
+
+  if (startDate > todayStr || endDate > todayStr) {
+    return { ok: false, message: "服務日期不可是未來日期。" };
+  }
+
+  if (endDate < startDate) {
+    return { ok: false, message: "服務日期迄不能早於服務日期起。" };
+  }
+
+  if (startDate.slice(0, 7) !== endDate.slice(0, 7)) {
+    return { ok: false, message: "服務日期不可跨月。" };
+  }
+
+  if (!serviceItemCode) {
+    return { ok: false, message: "請選擇服務項目。" };
+  }
+
+  if (!serviceContentCode) {
+    return { ok: false, message: "請選擇服務內容。" };
+  }
+
+  sanitizeNonNegativeIntegerInput(batchHoursInput);
+  sanitizeMinutesInput(batchMinutesInput);
+  sanitizeNonNegativeIntegerInput(batchClientCountInput);
+
+  const hours = toNonNegativeIntOrZero(batchHoursInput ? batchHoursInput.value : "");
+  const minutes = toNonNegativeIntOrZero(batchMinutesInput ? batchMinutesInput.value : "");
+  const clientCount = toNonNegativeIntOrZero(batchClientCountInput ? batchClientCountInput.value : "0");
+  const trafficFee = toNonNegativeNumberOrZero(batchTrafficFeeInput ? batchTrafficFeeInput.value : "0");
+  const mealFee = toNonNegativeNumberOrZero(batchMealFeeInput ? batchMealFeeInput.value : "0");
+
+  if (Number.isNaN(hours)) {
+    return { ok: false, message: "小時請輸入 0 以上的整數。" };
+  }
+
+  if (Number.isNaN(minutes) || minutes < 0 || minutes > 59) {
+    return { ok: false, message: "分鐘請輸入 0 到 59。" };
+  }
+
+  const normalizedTime = normalizeServiceTime(hours, minutes);
+
+  if (!normalizedTime || normalizedTime.countedHours <= 0) {
+    return { ok: false, message: "請填寫服務時數。" };
+  }
+
+  if (batchHoursInput) batchHoursInput.value = String(normalizedTime.hours);
+  if (batchMinutesInput) batchMinutesInput.value = String(normalizedTime.minutes);
+
+  if (Number.isNaN(clientCount)) {
+    return { ok: false, message: "人數請輸入 0 以上的整數。" };
+  }
+
+  if (Number.isNaN(trafficFee)) {
+    return { ok: false, message: "交通費請輸入 0 以上的數字。" };
+  }
+
+  if (Number.isNaN(mealFee)) {
+    return { ok: false, message: "誤餐費請輸入 0 以上的數字。" };
+  }
+
+  return {
+    ok: true,
+    values: {
+      startDate,
+      endDate,
+      serviceItemCode,
+      serviceContentCode,
+      hours: normalizedTime.hours,
+      minutes: normalizedTime.minutes,
+      clientCount,
+      peopleCount: Math.round(clientCount * normalizedTime.countedHours),
+      trafficFee,
+      mealFee,
+    },
+  };
+}
+
+function buildBatchPreviewRows() {
+  setText(batchErrorEl, "");
+
+  const commonResult = validateBatchCommonInputs();
+
+  if (!commonResult.ok) {
+    setText(batchErrorEl, commonResult.message);
+    showToast(commonResult.message, "warning");
+    return;
+  }
+
+  const selectedVolunteers = getCheckedBatchVolunteers();
+
+  if (selectedVolunteers.length === 0) {
+    const message = "請至少勾選一位參與志工。";
+    setText(batchErrorEl, message);
+    showToast(message, "warning");
+    return;
+  }
+
+  batchDraftRows.length = 0;
+
+  selectedVolunteers.forEach((v) => {
+    batchDraftRows.push({
+      name: v.name,
+      id: v.id,
+      ...commonResult.values,
+      sourceType: "batch",
+    });
+  });
+
+  renderBatchPreviewTable();
+  showToast(`已建立 ${batchDraftRows.length} 位志工的批次預覽表`, "success");
+}
+
+function getBatchPreviewInput(rowEl, field) {
+  return rowEl.querySelector(`[data-field="${field}"]`);
+}
+
+function setBatchPreviewRowDateConstraints(rowEl) {
+  const startInput = getBatchPreviewInput(rowEl, "startDate");
+  const endInput = getBatchPreviewInput(rowEl, "endDate");
+
+  if (!startInput || !endInput) return;
+
+  const todayStr = getTodayLocalYYYYMMDD();
+  startInput.max = todayStr;
+  endInput.max = todayStr;
+
+  let startDate = startInput.value;
+
+  if (!startDate) {
+    endInput.value = "";
+    endInput.min = "";
+    endInput.max = todayStr;
+    return;
+  }
+
+  if (startDate > todayStr) {
+    startInput.value = todayStr;
+    startDate = todayStr;
+    showToast("服務日期起不可大於今天，已自動調整。", "warning");
+  }
+
+  const lastDateOfMonth = getLastDateOfMonthFromIsoDate(startDate);
+  const maxEndDate = lastDateOfMonth <= todayStr ? lastDateOfMonth : todayStr;
+
+  endInput.min = startDate;
+  endInput.max = maxEndDate;
+
+  if (
+    !endInput.value ||
+    endInput.value < startDate ||
+    endInput.value > maxEndDate ||
+    endInput.value.slice(0, 7) !== startDate.slice(0, 7)
+  ) {
+    endInput.value = maxEndDate;
+  }
+}
+
+function syncBatchDraftRowFromInputs(rowEl, index, options = {}) {
+  const draft = batchDraftRows[index];
+  if (!draft) return;
+
+  setBatchPreviewRowDateConstraints(rowEl);
+
+  const startDate = getBatchPreviewInput(rowEl, "startDate")?.value || "";
+  const endDate = getBatchPreviewInput(rowEl, "endDate")?.value || "";
+  const hoursInput = getBatchPreviewInput(rowEl, "hours");
+  const minutesInput = getBatchPreviewInput(rowEl, "minutes");
+  const clientCountInput = getBatchPreviewInput(rowEl, "clientCount");
+  const peopleCountInput = getBatchPreviewInput(rowEl, "peopleCount");
+  const trafficFeeInput = getBatchPreviewInput(rowEl, "trafficFee");
+  const mealFeeInput = getBatchPreviewInput(rowEl, "mealFee");
+
+  sanitizeNonNegativeIntegerInput(hoursInput);
+  sanitizeMinutesInput(minutesInput);
+  sanitizeNonNegativeIntegerInput(clientCountInput);
+
+  const hours = toNonNegativeIntOrZero(hoursInput ? hoursInput.value : "");
+  const minutes = toNonNegativeIntOrZero(minutesInput ? minutesInput.value : "");
+  const clientCount = toNonNegativeIntOrZero(clientCountInput ? clientCountInput.value : "0");
+  const trafficFee = toNonNegativeNumberOrZero(trafficFeeInput ? trafficFeeInput.value : "0");
+  const mealFee = toNonNegativeNumberOrZero(mealFeeInput ? mealFeeInput.value : "0");
+
+  draft.startDate = startDate;
+  draft.endDate = endDate;
+  draft.clientCount = Number.isNaN(clientCount) ? 0 : clientCount;
+  draft.trafficFee = Number.isNaN(trafficFee) ? 0 : trafficFee;
+  draft.mealFee = Number.isNaN(mealFee) ? 0 : mealFee;
+
+  const normalizedTime = normalizeServiceTime(hours, minutes);
+
+  if (!normalizedTime || normalizedTime.countedHours <= 0 || Number.isNaN(clientCount)) {
+    draft.hours = Number.isNaN(hours) ? 0 : hours;
+    draft.minutes = Number.isNaN(minutes) ? 0 : minutes;
+    draft.peopleCount = 0;
+    if (peopleCountInput) peopleCountInput.value = "";
+    return;
+  }
+
+  draft.hours = normalizedTime.hours;
+  draft.minutes = normalizedTime.minutes;
+  draft.peopleCount = Math.round(draft.clientCount * normalizedTime.countedHours);
+
+  if (options.normalizeInputs) {
+    if (hoursInput) hoursInput.value = String(draft.hours);
+    if (minutesInput) minutesInput.value = String(draft.minutes);
+  }
+
+  if (peopleCountInput) peopleCountInput.value = String(draft.peopleCount);
+}
+
+function bindBatchPreviewRowEvents(rowEl, index) {
+  ["startDate", "endDate", "hours", "minutes", "clientCount", "trafficFee", "mealFee"].forEach((field) => {
+    const input = getBatchPreviewInput(rowEl, field);
+    if (!input) return;
+
+    input.addEventListener("input", function () {
+      syncBatchDraftRowFromInputs(rowEl, index, { normalizeInputs: false });
+    });
+
+    input.addEventListener("change", function () {
+      const shouldNormalize = field === "hours" || field === "minutes";
+      syncBatchDraftRowFromInputs(rowEl, index, { normalizeInputs: shouldNormalize });
+    });
+
+    input.addEventListener("blur", function () {
+      const shouldNormalize = field === "hours" || field === "minutes";
+      syncBatchDraftRowFromInputs(rowEl, index, { normalizeInputs: shouldNormalize });
+    });
+  });
+}
+
+function renderBatchPreviewTable() {
+  if (!batchPreviewTableBody) return;
+
+  batchPreviewTableBody.innerHTML = "";
+
+  if (batchDraftRows.length === 0) {
+    batchPreviewTableBody.innerHTML = `
+      <tr>
+        <td colspan="11">勾選志工並建立預覽表後，會在這裡逐位調整。</td>
+      </tr>
+    `;
+    return;
+  }
+
+  batchDraftRows.forEach((row, index) => {
+    const tr = document.createElement("tr");
+    tr.dataset.index = String(index);
+
+    tr.innerHTML = `
+      <td>${row.name || ""}</td>
+      <td>${row.id || ""}</td>
+      <td><input type="date" value="${row.startDate || ""}" data-field="startDate" max="${getTodayLocalYYYYMMDD()}" /></td>
+      <td><input type="date" value="${row.endDate || ""}" data-field="endDate" max="${getTodayLocalYYYYMMDD()}" /></td>
+      <td><input type="number" min="0" step="1" value="${row.hours ?? ""}" data-field="hours" /></td>
+      <td><input type="number" min="0" max="59" step="1" value="${row.minutes ?? ""}" data-field="minutes" /></td>
+      <td><input type="number" min="0" step="1" value="${row.clientCount ?? ""}" data-field="clientCount" /></td>
+      <td><input type="text" readonly value="${row.peopleCount ?? ""}" data-field="peopleCount" /></td>
+      <td><input type="number" min="0" step="1" value="${row.trafficFee ?? ""}" data-field="trafficFee" /></td>
+      <td><input type="number" min="0" step="1" value="${row.mealFee ?? ""}" data-field="mealFee" /></td>
+      <td>
+        <button type="button" class="btn btn-small btn-danger" data-action="removeBatchPreviewRow" data-index="${index}">移除</button>
+      </td>
+    `;
+
+    batchPreviewTableBody.appendChild(tr);
+    setBatchPreviewRowDateConstraints(tr);
+    syncBatchDraftRowFromInputs(tr, index, { normalizeInputs: false });
+    bindBatchPreviewRowEvents(tr, index);
+  });
+}
+
+function validateBatchDraftRowsForRecords() {
+  if (batchDraftRows.length === 0) {
+    return { ok: false, message: "請先建立批次預覽表。" };
+  }
+
+  const todayStr = getTodayLocalYYYYMMDD();
+  const newRecords = [];
+
+  for (const [index, row] of batchDraftRows.entries()) {
+    const rowNumber = index + 1;
+
+    if (!row.startDate || !row.endDate) {
+      return { ok: false, message: `第 ${rowNumber} 列請填寫服務日期。` };
+    }
+
+    if (row.startDate > todayStr || row.endDate > todayStr) {
+      return { ok: false, message: `第 ${rowNumber} 列的服務日期不可是未來日期。` };
+    }
+
+    if (row.endDate < row.startDate) {
+      return { ok: false, message: `第 ${rowNumber} 列的服務日期迄不能早於服務日期起。` };
+    }
+
+    if (row.startDate.slice(0, 7) !== row.endDate.slice(0, 7)) {
+      return { ok: false, message: `第 ${rowNumber} 列的服務日期不可跨月。` };
+    }
+
+    const normalizedTime = normalizeServiceTime(row.hours, row.minutes);
+
+    if (!normalizedTime || normalizedTime.countedHours <= 0) {
+      return { ok: false, message: `第 ${rowNumber} 列請填寫服務時數。` };
+    }
+
+    if (!Number.isInteger(Number(row.clientCount)) || Number(row.clientCount) < 0) {
+      return { ok: false, message: `第 ${rowNumber} 列的人數請輸入 0 以上的整數。` };
+    }
+
+    if (!Number.isFinite(Number(row.trafficFee)) || Number(row.trafficFee) < 0) {
+      return { ok: false, message: `第 ${rowNumber} 列的交通費請輸入 0 以上的數字。` };
+    }
+
+    if (!Number.isFinite(Number(row.mealFee)) || Number(row.mealFee) < 0) {
+      return { ok: false, message: `第 ${rowNumber} 列的誤餐費請輸入 0 以上的數字。` };
+    }
+
+    newRecords.push({
+      name: row.name,
+      id: row.id,
+      startDate: row.startDate,
+      endDate: row.endDate,
+      serviceItemCode: padCode4(row.serviceItemCode),
+      serviceContentCode: padCode4(row.serviceContentCode),
+      hours: normalizedTime.hours,
+      minutes: normalizedTime.minutes,
+      clientCount: Number(row.clientCount || 0),
+      peopleCount: Math.round(Number(row.clientCount || 0) * normalizedTime.countedHours),
+      trafficFee: Number(row.trafficFee || 0),
+      mealFee: Number(row.mealFee || 0),
+      sourceType: "batch",
+    });
+  }
+
+  const duplicateInNewRecords = findDuplicateRecordInNewRecords(newRecords);
+  if (duplicateInNewRecords) {
+    const itemLabel = getServiceItemLabel(duplicateInNewRecords.serviceItemCode);
+    const contentLabel = getServiceContentLabel(
+      duplicateInNewRecords.serviceItemCode,
+      duplicateInNewRecords.serviceContentCode
+    );
+
+    return {
+      ok: false,
+      message: `本次批次新增中有重複服務紀錄：${duplicateInNewRecords.name}，${duplicateInNewRecords.startDate} 至 ${duplicateInNewRecords.endDate}，${itemLabel}／${contentLabel}。`,
+    };
+  }
+
+  const duplicateExistingRecords = newRecords.filter((newRecord) => findDuplicateRecord(newRecord));
+
+  if (duplicateExistingRecords.length > 0) {
+    const names = duplicateExistingRecords.map((r) => r.name).join("、");
+    return {
+      ok: false,
+      message: `以下志工已有相同服務紀錄，未新增：${names}。請先刪除或編輯原紀錄。`,
+    };
+  }
+
+  return {
+    ok: true,
+    records: newRecords,
+  };
+}
+
+function clearBatchDraft(options = {}) {
+  batchDraftRows.length = 0;
+  renderBatchPreviewTable();
+  setText(batchErrorEl, "");
+
+  if (options.clearChecked !== false && batchVolunteerChecklist) {
+    batchVolunteerChecklist.querySelectorAll(".batch-volunteer-checkbox").forEach((checkbox) => {
+      checkbox.checked = false;
+    });
+  }
+
+  if (batchSelectAllCheckbox && options.clearChecked !== false) {
+    batchSelectAllCheckbox.checked = false;
+  }
+}
+
+function initBatchRecords() {
+  renderBatchServiceItemOptions();
+  renderBatchVolunteerChecklist();
+
+  if (batchStartDateInput) {
+    batchStartDateInput.max = getTodayLocalYYYYMMDD();
+    batchStartDateInput.addEventListener("change", updateBatchEndDateConstraints);
+  }
+
+  if (batchEndDateInput) {
+    batchEndDateInput.max = getTodayLocalYYYYMMDD();
+    batchEndDateInput.addEventListener("change", updateBatchEndDateConstraints);
+  }
+
+  if (batchServiceItemSelect) {
+    batchServiceItemSelect.addEventListener("change", function () {
+      renderBatchServiceContentOptions(padCode4(batchServiceItemSelect.value));
+    });
+  }
+
+  [
+    batchHoursInput,
+    batchMinutesInput,
+    batchClientCountInput,
+  ].forEach((input) => {
+    if (!input) return;
+
+    input.addEventListener("input", function () {
+      if (input === batchMinutesInput) {
+        sanitizeMinutesInput(input);
+      } else {
+        sanitizeNonNegativeIntegerInput(input);
+      }
+    });
+  });
+
+  [batchHoursInput, batchMinutesInput].forEach((input) => {
+    if (!input) return;
+
+    input.addEventListener("change", function () {
+      normalizeTimeInputsIfPossible(batchHoursInput, batchMinutesInput);
+    });
+
+    input.addEventListener("blur", function () {
+      normalizeTimeInputsIfPossible(batchHoursInput, batchMinutesInput);
+    });
+  });
+
+  if (batchToggleBtn && batchPanel) {
+    batchToggleBtn.addEventListener("click", function () {
+      const shouldOpen = batchPanel.classList.contains("hidden");
+
+      if (shouldOpen) {
+        batchPanel.classList.remove("hidden");
+        batchToggleBtn.textContent = "收起多人批次新增";
+        renderBatchVolunteerChecklist();
+      } else {
+        batchPanel.classList.add("hidden");
+        batchToggleBtn.textContent = "開啟多人批次新增";
+      }
+    });
+  }
+
+  if (batchSelectAllCheckbox && batchVolunteerChecklist) {
+    batchSelectAllCheckbox.addEventListener("change", function () {
+      batchVolunteerChecklist.querySelectorAll(".batch-volunteer-checkbox").forEach((checkbox) => {
+        checkbox.checked = batchSelectAllCheckbox.checked;
+      });
+    });
+
+    batchVolunteerChecklist.addEventListener("change", function (e) {
+      if (!e.target.matches(".batch-volunteer-checkbox")) return;
+
+      const allBoxes = Array.from(batchVolunteerChecklist.querySelectorAll(".batch-volunteer-checkbox"));
+      const checkedBoxes = allBoxes.filter((checkbox) => checkbox.checked);
+
+      batchSelectAllCheckbox.checked = allBoxes.length > 0 && checkedBoxes.length === allBoxes.length;
+    });
+  }
+
+  if (batchClearSelectedBtn && batchVolunteerChecklist) {
+    batchClearSelectedBtn.addEventListener("click", function () {
+      batchVolunteerChecklist.querySelectorAll(".batch-volunteer-checkbox").forEach((checkbox) => {
+        checkbox.checked = false;
+      });
+      if (batchSelectAllCheckbox) batchSelectAllCheckbox.checked = false;
+    });
+  }
+
+  if (batchBuildPreviewBtn) {
+    batchBuildPreviewBtn.addEventListener("click", buildBatchPreviewRows);
+  }
+
+  if (batchClearDraftBtn) {
+    batchClearDraftBtn.addEventListener("click", async function () {
+      if (batchDraftRows.length === 0) {
+        clearBatchDraft();
+        showToast("目前沒有批次草稿可清空", "warning");
+        return;
+      }
+
+      const ok = await showConfirm("確定要清空批次預覽表嗎？", "清空", "取消");
+      if (!ok) return;
+
+      clearBatchDraft();
+      showToast("已清空批次草稿", "info");
+    });
+  }
+
+  if (batchPreviewTableBody) {
+    batchPreviewTableBody.addEventListener("click", function (e) {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+
+      if (btn.dataset.action !== "removeBatchPreviewRow") return;
+
+      const index = Number(btn.dataset.index);
+      if (Number.isNaN(index) || !batchDraftRows[index]) return;
+
+      batchDraftRows.splice(index, 1);
+      renderBatchPreviewTable();
+    });
+  }
+
+  if (batchForm) {
+    batchForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      setText(batchErrorEl, "");
+
+      const result = validateBatchDraftRowsForRecords();
+
+      if (!result.ok) {
+        setText(batchErrorEl, result.message);
+        showToast(result.message, "warning");
+        return;
+      }
+
+      records.push(...result.records);
+      saveRecordsToStorage();
+      renderRecordsTable();
+      clearBatchDraft();
+
+      showToast(`已批次新增 ${result.records.length} 筆服務紀錄`, "success");
+    });
+  }
+}
+
 // ============================================================
 // === 顯示模式切換 ===
 // ============================================================
@@ -2209,6 +3031,7 @@ function init() {
   initVolunteerSelectAutoFill();
   initVolunteerServicesManager();
   initRecordForm();
+  initBatchRecords();
   initDisplayModeToggle();
   initRecordTableActions();
   initCopyButton();

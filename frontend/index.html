@@ -189,6 +189,127 @@
 </form>
 <p class="error-message" id="recordError"></p>
 </section>
+
+<!-- 多人批次新增服務紀錄 -->
+<section class="card">
+  <div class="records-header">
+    <div>
+      <h2>多人批次新增服務紀錄</h2>
+      <p class="section-desc">
+        節日、廟會或大型活動才需要使用。平常先收起來，需要時再展開，勾選多位志工後可先建立預覽表，再逐位調整時數與費用。
+      </p>
+    </div>
+    <div class="records-actions">
+      <button type="button" class="btn secondary" id="batchToggleBtn">開啟多人批次新增</button>
+    </div>
+  </div>
+
+  <div id="batchPanel" class="hidden" style="margin-top: 1rem;">
+    <form id="batch-form" class="form-grid">
+      <div class="field-group">
+        <label for="batchStartDate">服務日期起</label>
+        <input type="date" id="batchStartDate" />
+      </div>
+      <div class="field-group">
+        <label for="batchEndDate">服務日期迄</label>
+        <input type="date" id="batchEndDate" />
+      </div>
+
+      <div class="field-group">
+        <label for="batchServiceItemSelect">服務項目</label>
+        <select id="batchServiceItemSelect">
+          <option value="">請選擇服務項目</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label for="batchServiceContentSelect">服務內容</label>
+        <select id="batchServiceContentSelect">
+          <option value="">請先選擇服務項目</option>
+        </select>
+      </div>
+
+      <div class="field-group full-width">
+        <label>預設服務時數與人數</label>
+        <div class="inline-fields">
+          <div class="inline-field-group">
+            <span>小時</span>
+            <input type="number" id="batchHours" min="0" step="1" placeholder="小時" />
+          </div>
+          <div class="inline-field-group">
+            <span>分鐘</span>
+            <input type="number" id="batchMinutes" min="0" max="59" step="1" placeholder="分鐘" />
+          </div>
+          <div class="inline-field-group">
+            <span>人數</span>
+            <input type="number" id="batchClientCount" min="0" step="1" value="0" placeholder="人數" />
+          </div>
+          <div class="inline-field-group">
+            <span>交通費</span>
+            <input type="number" id="batchTrafficFee" min="0" step="1" value="0" />
+          </div>
+          <div class="inline-field-group">
+            <span>誤餐費</span>
+            <input type="number" id="batchMealFee" min="0" step="1" value="0" />
+          </div>
+        </div>
+      </div>
+
+      <div class="field-group full-width">
+        <label>勾選參與志工</label>
+        <div class="records-actions" style="justify-content:flex-start; margin-bottom:0.6rem;">
+          <label style="display:flex; align-items:center; gap:0.4rem;">
+            <input type="checkbox" id="batchSelectAll" />
+            全選
+          </label>
+          <button type="button" class="btn btn-small btn-secondary" id="batchClearSelectedBtn">清除選取</button>
+        </div>
+        <div id="batchVolunteerChecklist" class="volunteer-list" style="max-height: 220px; overflow:auto; border:1px solid #E1DED2; border-radius:10px; padding:0.8rem;">
+          尚未建立志工名單
+        </div>
+      </div>
+
+      <div class="field-group full-width">
+        <div class="records-actions" style="justify-content:flex-start;">
+          <button type="button" class="btn secondary" id="batchBuildPreviewBtn">建立預覽表</button>
+          <button type="button" class="btn secondary" id="batchClearDraftBtn">清空批次草稿</button>
+        </div>
+      </div>
+
+      <div class="field-group full-width">
+        <div class="table-wrapper" id="batchPreviewWrapper" style="margin-top: 1rem;">
+          <table>
+            <thead>
+              <tr>
+                <th>姓名</th>
+                <th>身分證</th>
+                <th>服務日期起</th>
+                <th>服務日期迄</th>
+                <th>小時</th>
+                <th>分鐘</th>
+                <th>人數</th>
+                <th>人次</th>
+                <th>交通費</th>
+                <th>誤餐費</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="batchPreviewTableBody">
+              <tr>
+                <td colspan="11">勾選志工並建立預覽表後，會在這裡逐位調整。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="field-group full-width">
+        <button type="submit" class="btn primary" id="batchSubmitBtn">新增到服務紀錄</button>
+      </div>
+    </form>
+    <p id="batchError" class="error-message"></p>
+  </div>
+</section>
+
 <!-- 目前服務紀錄 -->
 <section class="card">
 <div class="records-header">
