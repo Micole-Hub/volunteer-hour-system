@@ -33,17 +33,7 @@ const volunteerServicesErrorEl = document.getElementById("volunteerServicesError
 const addVolunteerServiceRowBtn = document.getElementById("addVolunteerServiceRowBtn");
 const saveVolunteerServicesBtn = document.getElementById("saveVolunteerServicesBtn");
 const recordForm = document.getElementById("record-form");
-const startDateInput = document.getElementById("startDate");
-const endDateInput = document.getElementById("endDate");
-const serviceItemSelect = document.getElementById("serviceItemSelect");
-const serviceContentSelect = document.getElementById("serviceContentSelect");
 const recordServiceDraftTableBody = document.getElementById("recordServiceDraftTableBody");
-const hoursInput = document.getElementById("hours");
-const minutesInput = document.getElementById("minutes");
-const clientCountInput = document.getElementById("clientCount");
-const peopleCountDisplayInput = document.getElementById("peopleCountDisplay");
-const trafficFeeInput = document.getElementById("trafficFee");
-const mealFeeInput = document.getElementById("mealFee");
 const recordErrorEl = document.getElementById("recordError");
 const recordSubmitBtn = document.getElementById("recordSubmitBtn");
 
@@ -59,7 +49,6 @@ const records = [];
 const volunteerServicesDraft = [];
 let displayMode = "readable";
 let editingVolunteerIndex = null;
-let editingRecordIndex = null;
 
 // === 服務項目 / 內容代碼表 ===
 const SERVICE_ITEMS = [
@@ -406,43 +395,6 @@ function renderSummaryBar() {
 // ============================================================
 // === 日期限制 ===
 // ============================================================
-
-function updateEndDateConstraints() {
-  if (!startDateInput || !endDateInput) return;
-
-  const startValue = startDateInput.value;
-
-  if (!startValue) {
-    endDateInput.min = "";
-    endDateInput.max = "";
-    endDateInput.value = "";
-    return;
-  }
-
-  const start = parseIsoDateToDate(startValue);
-  if (!start) return;
-
-  const year = start.getFullYear();
-  const monthIndex = start.getMonth();
-  const lastDateOfMonth = new Date(year, monthIndex + 1, 0);
-  const lastDayStr = formatLocalYYYYMMDD(lastDateOfMonth);
-
-  // 單筆欄位：開始日期自己填，結束日期自動帶同月份最後一天
-  endDateInput.min = startValue;
-  endDateInput.max = lastDayStr;
-
-  const currentEndValue = endDateInput.value;
-  const isInvalid =
-    !currentEndValue ||
-    currentEndValue < startValue ||
-    currentEndValue > lastDayStr ||
-    currentEndValue.slice(0, 7) !== startValue.slice(0, 7);
-
-  if (isInvalid) {
-    endDateInput.value = lastDayStr;
-  }
-}
-
 
 // ============================================================
 // === localStorage ===
@@ -1014,28 +966,6 @@ function getDraftRowValue(row, field) {
   const input = getDraftRowInput(row, field);
   return input ? String(input.value || "").trim() : "";
 }
-function isDraftRowEmpty(row) {
-  const startDate = getDraftRowValue(row, "startDate");
-  const endDate = getDraftRowValue(row, "endDate");
-
-  const hours = Number(getDraftRowValue(row, "hours") || 0);
-  const minutes = Number(getDraftRowValue(row, "minutes") || 0);
-  const clientCount = Number(getDraftRowValue(row, "clientCount") || 0);
-  const trafficFee = Number(getDraftRowValue(row, "trafficFee") || 0);
-  const mealFee = Number(getDraftRowValue(row, "mealFee") || 0);
-
-  // 完全沒有日期，也沒有任何有效數字，才算空白列
-  return (
-    !startDate &&
-    !endDate &&
-    hours === 0 &&
-    minutes === 0 &&
-    clientCount === 0 &&
-    trafficFee === 0 &&
-    mealFee === 0
-  );
-}
-
 function resetDraftTableRowsAfterSubmit() {
   if (!recordServiceDraftTableBody) return;
 
@@ -1497,7 +1427,43 @@ function buildRecordsFromDraftTableRows(name, id) {
     records: newRecords,
   };
 }
+function isSameServiceRecord(a, b) {
+  return (
+    a.id === b.id &&
+    a.startDate === b.startDate &&
+    a.endDate === b.endDate &&
+    padCode4(a.serviceItemCode) === padCode4(b.serviceItemCode) &&
+    padCode4(a.serviceContentCode) === padCode4(b.serviceContentCode)
+  );
+}
 
+function findDuplicateRecord(newRecord) {
+  return records.find((existingRecord) => {
+    return isSameServiceRecord(existingRecord, newRecord);
+  });
+}
+
+function findDuplicateRecordInNewRecords(newRecords) {
+  const seen = new Set();
+
+  for (const record of newRecords) {
+    const key = [
+      record.id,
+      record.startDate,
+      record.endDate,
+      padCode4(record.serviceItemCode),
+      padCode4(record.serviceContentCode),
+    ].join("__");
+
+    if (seen.has(key)) {
+      return record;
+    }
+
+    seen.add(key);
+  }
+
+  return null;
+}
 
 function initVolunteerServicesManager() {
   if (loadVolunteerServicesBtn) {
@@ -1621,46 +1587,6 @@ function initLogin() {
 // ============================================================
 // === 服務項目 / 內容下拉 ===
 // ============================================================
-
-function renderServiceItemOptions() {
-  if (!serviceItemSelect) return;
-  serviceItemSelect.innerHTML = '<option value="">請選擇服務項目</option>';
-  SERVICE_ITEMS.forEach((item) => {
-    const opt = document.createElement("option");
-    opt.value = item.code;
-    opt.textContent = `${padCode4(item.code)} - ${item.label}`;
-    serviceItemSelect.appendChild(opt);
-  });
-  renderServiceContentOptions("");
-}
-
-function renderServiceContentOptions(itemCode) {
-  if (!serviceContentSelect) return;
-  serviceContentSelect.innerHTML = "";
-  if (!itemCode || !SERVICE_CONTENTS_BY_ITEM[itemCode]) {
-    const opt = document.createElement("option");
-    opt.value = ""; opt.textContent = "請先選擇服務項目";
-    serviceContentSelect.appendChild(opt);
-    return;
-  }
-  const ph = document.createElement("option");
-  ph.value = ""; ph.textContent = "請選擇服務內容";
-  serviceContentSelect.appendChild(ph);
-  SERVICE_CONTENTS_BY_ITEM[itemCode].forEach((content) => {
-    const opt = document.createElement("option");
-    opt.value = content.code;
-    opt.textContent = `${padCode4(content.code)} - ${content.label}`;
-    serviceContentSelect.appendChild(opt);
-  });
-}
-
-function initServiceSelects() {
-  renderServiceItemOptions();
-  if (!serviceItemSelect) return;
-  serviceItemSelect.addEventListener("change", function () {
-    renderServiceContentOptions(serviceItemSelect.value);
-  });
-}
 
 // ============================================================
 // === 身分證輸入限制 ===
@@ -1871,37 +1797,23 @@ function initVolunteerSelectAutoFill() {
       recordVolunteerIdInput.value = volunteerId;
     }
 
+    setText(recordErrorEl, "");
+
     if (!volunteerId) {
-    if (serviceItemSelect) serviceItemSelect.value = "";
-    renderServiceContentOptions("");
-    renderRecordServiceDraftTable([]);
-    return;
+      renderRecordServiceDraftTable([]);
+      return;
     }
 
     const services = await loadVolunteerServicesForRecord(volunteerId);
 
+    renderRecordServiceDraftTable(services);
+
     if (services.length === 0) {
       showToast("這位志工目前沒有設定預設服務項目", "warning");
-      if (serviceItemSelect) serviceItemSelect.value = "";
-      renderServiceContentOptions("");
       return;
     }
-    renderRecordServiceDraftTable(services);
-    const firstService = services[0];
-    const serviceItemCode = padCode4(firstService.serviceItemCode);
-    const serviceContentCode = padCode4(firstService.serviceContentCode);
 
-    if (serviceItemSelect) {
-      serviceItemSelect.value = serviceItemCode;
-    }
-
-    renderServiceContentOptions(serviceItemCode);
-
-    if (serviceContentSelect) {
-      serviceContentSelect.value = serviceContentCode;
-    }
-
-    showToast(`已帶入第 1 筆預設服務項目，共 ${services.length} 筆`, "success");
+    showToast(`已載入 ${services.length} 筆預設服務項目`, "success");
   });
 }
 
@@ -1909,109 +1821,9 @@ function initVolunteerSelectAutoFill() {
 // === 受服務人次預覽 ===
 // ============================================================
 
-function updatePeopleCountPreview() {
-  if (!hoursInput || !minutesInput || !clientCountInput || !peopleCountDisplayInput) return;
-
-  const hours = hoursInput.value !== "" ? Number(hoursInput.value) : 0;
-  const minutes = minutesInput.value !== "" ? Number(minutesInput.value) : 0;
-  const clientCount = clientCountInput.value !== "" ? Number(clientCountInput.value) : 0;
-
-  const normalizedTime = normalizeServiceTime(hours, minutes);
-
-  if (
-    !normalizedTime ||
-    !Number.isFinite(clientCount) ||
-    clientCount < 0 ||
-    normalizedTime.countedHours <= 0
-  ) {
-    peopleCountDisplayInput.value = "";
-    return;
-  }
-
-  peopleCountDisplayInput.value = String(
-    Math.round(clientCount * normalizedTime.countedHours)
-  );
-}
-function initPeopleCountPreview() {
-  [hoursInput, minutesInput, clientCountInput].forEach((el) => {
-    if (!el) return;
-    el.addEventListener("input", updatePeopleCountPreview);
-  });
-}
-
 // ============================================================
 // === 服務紀錄：編輯模式 ===
 // ============================================================
-
-function enterRecordEditMode(index) {
-  editingRecordIndex = index;
-  const r = records[index];
-  if (!r) return;
-  if (recordVolunteerSelect) recordVolunteerSelect.value = r.name;
-  if (recordVolunteerIdInput) recordVolunteerIdInput.value = r.id;
-  if (startDateInput) startDateInput.value = r.startDate;
-  updateEndDateConstraints();
-  if (endDateInput) {
-    const min = endDateInput.min, max = endDateInput.max;
-    if (r.endDate && (!min || r.endDate >= min) && (!max || r.endDate <= max))
-      endDateInput.value = r.endDate;
-  }
-  if (serviceItemSelect) {
-    serviceItemSelect.value = r.serviceItemCode;
-    renderServiceContentOptions(r.serviceItemCode);
-  }
-  if (serviceContentSelect) serviceContentSelect.value = r.serviceContentCode;
-  if (hoursInput) hoursInput.value = r.hours ?? 0;
-  if (minutesInput) minutesInput.value = r.minutes ?? 0;
-  if (clientCountInput) clientCountInput.value = r.clientCount ?? 0;
-  if (trafficFeeInput) trafficFeeInput.value = r.trafficFee ?? 0;
-  if (mealFeeInput) mealFeeInput.value = r.mealFee ?? 0;
-  setText(recordErrorEl, "");
-  updatePeopleCountPreview();
-  if (recordSubmitBtn) recordSubmitBtn.textContent = "儲存修改";
-  recordForm?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function resetRecordFormPreserveVolunteer() {
-  const keepName = recordVolunteerSelect ? recordVolunteerSelect.value : "";
-  const keepId = recordVolunteerIdInput ? recordVolunteerIdInput.value : "";
-  if (recordForm) recordForm.reset();
-  if (recordVolunteerSelect) recordVolunteerSelect.value = keepName;
-  if (recordVolunteerIdInput) recordVolunteerIdInput.value = keepId;
-  if (startDateInput) startDateInput.value = "";
-  if (endDateInput) endDateInput.value = "";
-  updateEndDateConstraints();
-  if (serviceItemSelect) serviceItemSelect.value = "";
-  renderServiceContentOptions("");
-  if (hoursInput) hoursInput.value = "";
-  if (minutesInput) minutesInput.value = "";
-  if (clientCountInput) clientCountInput.value = "0";
-  if (trafficFeeInput) trafficFeeInput.value = "0";
-  if (mealFeeInput) mealFeeInput.value = "0";
-  if (peopleCountDisplayInput) peopleCountDisplayInput.value = "";
-  setText(recordErrorEl, "");
-}
-
-function exitRecordEditMode(preserveVolunteer = true) {
-  editingRecordIndex = null;
-  if (!preserveVolunteer) {
-    if (recordForm) recordForm.reset();
-    if (recordVolunteerSelect) recordVolunteerSelect.value = "";
-    if (recordVolunteerIdInput) recordVolunteerIdInput.value = "";
-    if (peopleCountDisplayInput) peopleCountDisplayInput.value = "";
-    renderServiceContentOptions("");
-    if (clientCountInput) clientCountInput.value = "0";
-    if (trafficFeeInput) trafficFeeInput.value = "0";
-    if (mealFeeInput) mealFeeInput.value = "0";
-    if (startDateInput) startDateInput.value = "";
-    if (endDateInput) endDateInput.value = "";
-    updateEndDateConstraints();
-    setText(recordErrorEl, "");
-  } else {
-    resetRecordFormPreserveVolunteer();
-  }
-  if (recordSubmitBtn) recordSubmitBtn.textContent = "新增服務紀錄";
-}
 
 // ============================================================
 // === 表格：組每列 17 欄 ===
@@ -2051,6 +1863,96 @@ function buildImportRowCells(r) {
   ];
 }
 
+function fillDraftRowWithRecord(row, record) {
+  const startInput = getDraftRowInput(row, "startDate");
+  const endInput = getDraftRowInput(row, "endDate");
+  const hoursInput = getDraftRowInput(row, "hours");
+  const minutesInput = getDraftRowInput(row, "minutes");
+  const clientCountInput = getDraftRowInput(row, "clientCount");
+  const trafficFeeInput = getDraftRowInput(row, "trafficFee");
+  const mealFeeInput = getDraftRowInput(row, "mealFee");
+
+  if (startInput) {
+    startInput.value = record.startDate || "";
+  }
+
+  // 先依照服務日期起，建立合法的服務日期迄範圍並解鎖後續欄位
+  updateDraftRowEndDate(row);
+
+  if (endInput) {
+    endInput.value = record.endDate || "";
+  }
+
+  updateDraftRowInputLock(row, { clearWhenLocked: false });
+
+  if (hoursInput) hoursInput.value = String(record.hours ?? "");
+  if (minutesInput) minutesInput.value = String(record.minutes ?? "");
+  if (clientCountInput) clientCountInput.value = String(record.clientCount ?? "");
+  if (trafficFeeInput) trafficFeeInput.value = String(record.trafficFee ?? "");
+  if (mealFeeInput) mealFeeInput.value = String(record.mealFee ?? "");
+
+  updateDraftRowPeopleCount(row, { normalizeInputs: false });
+}
+
+async function editRecordInDraftTable(index) {
+  const record = records[index];
+
+  if (!record) {
+    showToast("找不到要編輯的服務紀錄", "error");
+    return;
+  }
+
+  const ok = await showConfirm(
+    "要把這筆紀錄帶回上方多列表格編輯嗎？原紀錄會先從下方列表移除，修改後請重新按「新增服務紀錄」。",
+    "帶回編輯",
+    "取消"
+  );
+
+  if (!ok) return;
+
+  if (recordVolunteerSelect) {
+    recordVolunteerSelect.value = record.name || "";
+  }
+
+  if (recordVolunteerIdInput) {
+    recordVolunteerIdInput.value = record.id || "";
+  }
+
+  const services = await loadVolunteerServicesForRecord(record.id);
+
+  if (!services || services.length === 0) {
+    showToast("這位志工目前沒有預設服務項目，無法帶回多列表格編輯", "error");
+    return;
+  }
+
+  renderRecordServiceDraftTable(services);
+
+  const targetRow = Array.from(recordServiceDraftTableBody.querySelectorAll("tr"))
+    .find((row) => {
+      return (
+        padCode4(row.dataset.serviceItemCode) === padCode4(record.serviceItemCode) &&
+        padCode4(row.dataset.serviceContentCode) === padCode4(record.serviceContentCode)
+      );
+    });
+
+  if (!targetRow) {
+    showToast("找不到對應的服務項目列，無法編輯這筆紀錄", "error");
+    return;
+  }
+
+  fillDraftRowWithRecord(targetRow, record);
+
+  // 先從 records 移除原本那筆，避免重新新增時被判定成重複紀錄
+  records.splice(index, 1);
+  saveRecordsToStorage();
+  renderRecordsTable();
+
+  setText(recordErrorEl, "這筆紀錄已帶回上方多列表格，修改後請重新按「新增服務紀錄」。");
+  showToast("已帶回上方多列表格，修改後請重新新增", "info");
+
+  recordForm?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function renderRecordsTable() {
   if (!recordsTableBody) return;
   recordsTableBody.innerHTML = "";
@@ -2058,6 +1960,7 @@ function renderRecordsTable() {
   records.forEach((r, index) => {
     const tr = document.createElement("tr");
     const cells = displayMode === "import" ? buildImportRowCells(r) : buildReadableRowCells(r);
+
     cells.forEach((text) => {
       const td = document.createElement("td");
       td.textContent = text;
@@ -2067,9 +1970,25 @@ function renderRecordsTable() {
     const actionTd = document.createElement("td");
     actionTd.style.whiteSpace = "nowrap";
     actionTd.innerHTML = `
-      <button type="button" class="btn btn-small btn-secondary" data-action="editRecord"   data-index="${index}">編輯</button>
-      <button type="button" class="btn btn-small btn-danger"    data-action="deleteRecord" data-index="${index}" style="margin-left:0.3rem;">刪除</button>
+      <button
+        type="button"
+        class="btn btn-small btn-secondary"
+        data-action="editRecord"
+        data-index="${index}"
+      >
+        編輯
+      </button>
+      <button
+        type="button"
+        class="btn btn-small btn-danger"
+        data-action="deleteRecord"
+        data-index="${index}"
+        style="margin-left:0.3rem;"
+      >
+        刪除
+      </button>
     `;
+
     tr.appendChild(actionTd);
     recordsTableBody.appendChild(tr);
   });
@@ -2079,29 +1998,33 @@ function renderRecordsTable() {
 
 function initRecordTableActions() {
   if (!recordsTableBody) return;
+
   recordsTableBody.addEventListener("click", async function (e) {
     const btn = e.target.closest("button");
     if (!btn) return;
+
     const action = btn.dataset.action;
     const index = Number(btn.dataset.index);
+
     if (Number.isNaN(index)) return;
 
     if (action === "editRecord") {
-      enterRecordEditMode(index);
+      editRecordInDraftTable(index);
       return;
     }
 
     if (action === "deleteRecord") {
       const r = records[index];
       if (!r) return;
+
       const ok = await showConfirm(`確定要刪除「${r.name}」在 ${r.startDate} 的服務紀錄嗎？`);
       if (!ok) return;
+
       records.splice(index, 1);
       saveRecordsToStorage();
       renderRecordsTable();
+
       showToast("已刪除該筆服務紀錄", "info");
-      if (editingRecordIndex === index) exitRecordEditMode(true);
-      else if (editingRecordIndex !== null && editingRecordIndex > index) editingRecordIndex -= 1;
     }
   });
 }
@@ -2115,18 +2038,15 @@ function initRecordForm() {
 
   recordForm.addEventListener("submit", function (e) {
     e.preventDefault();
+
     setText(recordErrorEl, "");
 
     const name = recordVolunteerSelect ? recordVolunteerSelect.value : "";
     const id = recordVolunteerIdInput ? recordVolunteerIdInput.value : "";
-    const startDate = startDateInput ? startDateInput.value : "";
-    const endDate = endDateInput ? endDateInput.value : "";
-    const serviceItemCode = serviceItemSelect ? serviceItemSelect.value : "";
-    const serviceContentCode = serviceContentSelect ? serviceContentSelect.value : "";
 
     if (!name) {
       setText(recordErrorEl, "請選擇志工姓名。");
-      showToast("請選擇志工姓名", "warning");
+      showToast("請先選擇志工姓名", "warning");
       return;
     }
 
@@ -2136,131 +2056,57 @@ function initRecordForm() {
       return;
     }
 
-    // 新增模式下，如果多列表格有資料，就改走「多列新增」流程
-    const draftRows = recordServiceDraftTableBody
-      ? Array.from(recordServiceDraftTableBody.querySelectorAll("tr"))
-          .filter((row) => row.dataset.serviceItemCode && row.dataset.serviceContentCode)
-      : [];
+    const result = buildRecordsFromDraftTableRows(name, id);
 
-    if (editingRecordIndex === null && draftRows.length > 0) {
-      const result = buildRecordsFromDraftTableRows(name, id);
-
-      if (!result.ok) {
-        setText(recordErrorEl, result.message);
-        showToast(result.message, "warning");
-        return;
-      }
-
-      records.push(...result.records);
-
-        saveRecordsToStorage();
-        renderRecordsTable();
-
-        showToast(`已新增 ${result.records.length} 筆服務紀錄`, "success");
-
-        setText(recordErrorEl, "");
-
-        // 新增成功後，清空多列表格並鎖回欄位
-        resetDraftTableRowsAfterSubmit();
-
-        return;
-      }
-
-    if (endDate < startDate) {
-      setText(recordErrorEl, "服務日期迄不能早於服務日期起。");
+    if (!result.ok) {
+      setText(recordErrorEl, result.message);
+      showToast(result.message, "warning");
       return;
     }
 
-    const todayStr = getTodayLocalYYYYMMDD();
+    const duplicateInNewRecords = findDuplicateRecordInNewRecords(result.records);
 
-    if (startDate > todayStr) {
-      setText(recordErrorEl, "服務日期起不可填未來日期。");
+    if (duplicateInNewRecords) {
+      const itemLabel = getServiceItemLabel(duplicateInNewRecords.serviceItemCode);
+      const contentLabel = getServiceContentLabel(
+        duplicateInNewRecords.serviceItemCode,
+        duplicateInNewRecords.serviceContentCode
+      );
+
+      const message = `本次新增中有重複服務紀錄：${duplicateInNewRecords.startDate} 至 ${duplicateInNewRecords.endDate}，${itemLabel}／${contentLabel}。請確認後再新增。`;
+
+      setText(recordErrorEl, message);
+      showToast("本次新增中有重複服務紀錄，未新增。", "warning");
       return;
     }
 
-    if (startDate.slice(0, 7) !== endDate.slice(0, 7)) {
-      setText(recordErrorEl, "服務日期不可跨月。");
+    const duplicateExistingRecord = result.records.find((newRecord) => {
+      return findDuplicateRecord(newRecord);
+    });
+
+    if (duplicateExistingRecord) {
+      const itemLabel = getServiceItemLabel(duplicateExistingRecord.serviceItemCode);
+      const contentLabel = getServiceContentLabel(
+        duplicateExistingRecord.serviceItemCode,
+        duplicateExistingRecord.serviceContentCode
+      );
+
+      const message = `已存在相同服務紀錄：${duplicateExistingRecord.startDate} 至 ${duplicateExistingRecord.endDate}，${itemLabel}／${contentLabel}。請先刪除或編輯原紀錄，不會新增重複時數。`;
+
+      setText(recordErrorEl, message);
+      showToast("已存在相同服務紀錄，未新增。", "warning");
       return;
     }
 
-    if (!serviceItemCode) {
-      setText(recordErrorEl, "請選擇服務項目。");
-      return;
-    }
-
-    if (!serviceContentCode) {
-      setText(recordErrorEl, "請選擇服務內容。");
-      return;
-    }
-
-    const hours = toNonNegativeIntOrZero(hoursInput ? hoursInput.value : "");
-    const minutes = toNonNegativeIntOrZero(minutesInput ? minutesInput.value : "");
-
-    if (Number.isNaN(hours)) {
-      setText(recordErrorEl, "服務時數-小時請輸入 0 以上的數字。");
-      return;
-    }
-
-    if (Number.isNaN(minutes) || minutes < 0 || minutes > 59) {
-      setText(recordErrorEl, "服務時數-分鐘請輸入 0–59 的數字。");
-      return;
-    }
-
-    const normalizedTime = normalizeServiceTime(hours, minutes);
-
-    if (!normalizedTime || normalizedTime.countedHours <= 0) {
-      setText(recordErrorEl, "服務時數不能是 0。");
-      return;
-    }
-
-    const clientCount = toNonNegativeIntOrZero(clientCountInput ? clientCountInput.value : "0");
-    const trafficFee = toNonNegativeNumberOrZero(trafficFeeInput ? trafficFeeInput.value : "0");
-    const mealFee = toNonNegativeNumberOrZero(mealFeeInput ? mealFeeInput.value : "0");
-
-    if (Number.isNaN(clientCount)) {
-      setText(recordErrorEl, "人數請輸入 0 以上的數字。");
-      return;
-    }
-
-    if (Number.isNaN(trafficFee)) {
-      setText(recordErrorEl, "交通費請輸入 0 以上的數字。");
-      return;
-    }
-
-    if (Number.isNaN(mealFee)) {
-      setText(recordErrorEl, "誤餐費請輸入 0 以上的數字。");
-      return;
-    }
-
-    const record = {
-      name,
-      id,
-      startDate,
-      endDate,
-      serviceItemCode: padCode4(serviceItemCode),
-      serviceContentCode: padCode4(serviceContentCode),
-
-      // 舊單筆也存整理後時數，避免複製出去還是原始分鐘
-      hours: normalizedTime.hours,
-      minutes: normalizedTime.minutes,
-
-      clientCount,
-      peopleCount: Math.round(clientCount * normalizedTime.countedHours),
-      trafficFee,
-      mealFee,
-    };
-
-    if (editingRecordIndex === null) {
-      records.push(record);
-      showToast(`已新增「${name}」的服務紀錄`, "success");
-    } else {
-      records[editingRecordIndex] = record;
-      showToast(`已更新第 ${editingRecordIndex + 1} 筆服務紀錄`, "success");
-    }
+    records.push(...result.records);
 
     saveRecordsToStorage();
     renderRecordsTable();
-    exitRecordEditMode(true);
+    resetDraftTableRowsAfterSubmit();
+
+    showToast(`已新增 ${result.records.length} 筆服務紀錄`, "success");
+
+    setText(recordErrorEl, "");
   });
 }
 
@@ -2318,14 +2164,26 @@ function initCopyButton() {
 
 function initClearRecordsButton() {
   if (!clearRecordsBtn) return;
+
   clearRecordsBtn.addEventListener("click", async function () {
-    if (records.length === 0) { showToast("目前沒有紀錄可清空", "warning"); return; }
+    if (records.length === 0) {
+      showToast("目前沒有紀錄可清空", "warning");
+      return;
+    }
+
     const ok = await showConfirm("確定要清空所有服務紀錄嗎？此操作無法復原。", "清空", "取消");
     if (!ok) return;
+
     records.length = 0;
     saveRecordsToStorage();
     renderRecordsTable();
-    exitRecordEditMode(true);
+
+    if (recordSubmitBtn) {
+      recordSubmitBtn.textContent = "新增服務紀錄";
+    }
+
+    resetDraftTableRowsAfterSubmit();
+
     showToast("已清空所有服務紀錄", "info");
   });
 }
@@ -2333,20 +2191,6 @@ function initClearRecordsButton() {
 // ============================================================
 // === 初始化 ===
 // ============================================================
-
-function initDateConstraints() {
-  if (startDateInput) startDateInput.max = getTodayLocalYYYYMMDD();
-  if (startDateInput && endDateInput)
-    startDateInput.addEventListener("change", updateEndDateConstraints);
-}
-
-function initDefaults() {
-  if (clientCountInput && clientCountInput.value === "") clientCountInput.value = "0";
-  if (trafficFeeInput && trafficFeeInput.value === "") trafficFeeInput.value = "0";
-  if (mealFeeInput && mealFeeInput.value === "") mealFeeInput.value = "0";
-  updateEndDateConstraints();
-  updatePeopleCountPreview();
-}
 
 function initVolunteersDataFlow() {
   loadVolunteersFromStorage();
@@ -2358,22 +2202,19 @@ function initVolunteersDataFlow() {
 }
 
 function init() {
-  initLogin();   // 包含 initPasswordToggle()
+  initLogin();
   initVolunteerIdInputGuards();
   initVolunteerForm();
   initVolunteerListActions();
   initVolunteerSelectAutoFill();
   initVolunteerServicesManager();
-  initServiceSelects();
-  initPeopleCountPreview();
-  initDateConstraints();
   initRecordForm();
   initDisplayModeToggle();
   initRecordTableActions();
   initCopyButton();
   initClearRecordsButton();
-  initDefaults();
   initVolunteersDataFlow();
+
   loadRecordsFromStorage();
   renderRecordsTable();
 }
