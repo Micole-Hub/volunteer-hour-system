@@ -596,6 +596,12 @@ function removeDuplicateVolunteerServices() {
     const service = volunteerServicesDraft[i];
     const serviceItemCode = padCode4(service.serviceItemCode);
     const serviceContentCode = padCode4(service.serviceContentCode);
+
+    // 空白列或尚未選完整的列，不要當成重複
+    if (!serviceItemCode || !serviceContentCode) {
+      continue;
+    }
+
     const key = `${serviceItemCode}__${serviceContentCode}`;
 
     if (seen.has(key)) {
@@ -612,7 +618,6 @@ function removeDuplicateVolunteerServices() {
 
   return removedCount;
 }
-
 function renderVolunteerServicesTable() {
   if (!volunteerServicesTableBody) return;
 
@@ -644,7 +649,9 @@ function renderVolunteerServicesTable() {
       `;
     }).join("");
 
-    const contentList = SERVICE_CONTENTS_BY_ITEM[serviceItemCode] || [];
+    const contentList = serviceItemCode
+      ? SERVICE_CONTENTS_BY_ITEM[serviceItemCode] || []
+      : [];
 
     const contentOptionsHtml = contentList.map((content) => {
       const code = padCode4(content.code);
@@ -657,14 +664,22 @@ function renderVolunteerServicesTable() {
       `;
     }).join("");
 
+    const contentPlaceholderText = serviceItemCode
+      ? "請選擇服務內容"
+      : "請先選擇服務項目";
+
+    const contentDisabled = serviceItemCode ? "" : "disabled";
+
     tr.innerHTML = `
       <td>
         <select data-index="${index}" data-field="serviceItemCode">
+          <option value="">請選擇服務項目</option>
           ${itemOptionsHtml}
         </select>
       </td>
       <td>
-        <select data-index="${index}" data-field="serviceContentCode">
+        <select data-index="${index}" data-field="serviceContentCode" ${contentDisabled}>
+          <option value="">${contentPlaceholderText}</option>
           ${contentOptionsHtml}
         </select>
       </td>
@@ -705,20 +720,13 @@ function renderVolunteerServicesTable() {
 
         volunteerServicesDraft[index].serviceItemCode = newItemCode;
 
-        const firstContent = SERVICE_CONTENTS_BY_ITEM[newItemCode]?.[0];
-        volunteerServicesDraft[index].serviceContentCode = firstContent
-          ? padCode4(firstContent.code)
-          : "";
-
-        const removedCount = removeDuplicateVolunteerServices();
+        // 換服務項目後，服務內容要清空，讓使用者自己選
+        volunteerServicesDraft[index].serviceContentCode = "";
 
         renderVolunteerServicesTable();
 
-        if (removedCount > 0) {
-          setText(volunteerServicesMessageEl, "已自動移除重複的服務項目。");
-          setText(volunteerServicesErrorEl, "");
-          showToast("重複項目已自動移除", "warning");
-        }
+        setText(volunteerServicesErrorEl, "");
+        setText(volunteerServicesMessageEl, "");
 
         return;
       }
@@ -975,32 +983,20 @@ function initVolunteerServicesManager() {
   }
 
   if (addVolunteerServiceRowBtn) {
-    addVolunteerServiceRowBtn.addEventListener("click", function () {
-      const firstItem = SERVICE_ITEMS[0];
-      const firstItemCode = firstItem ? padCode4(firstItem.code) : "";
-      const firstContent = SERVICE_CONTENTS_BY_ITEM[firstItemCode]?.[0];
-
-      volunteerServicesDraft.push({
-        serviceItemCode: firstItemCode,
-        serviceContentCode: firstContent ? padCode4(firstContent.code) : "",
-        sortOrder: volunteerServicesDraft.length + 1,
-      });
-
-      const removedCount = removeDuplicateVolunteerServices();
-
-      renderVolunteerServicesTable();
-
-      if (removedCount > 0) {
-        setText(volunteerServicesMessageEl, "這組服務項目已存在，已自動移除重複列。");
-        showToast("重複項目已自動移除", "warning");
-      } else {
-        setText(volunteerServicesMessageEl, "已新增一列，記得按儲存才會寫入 Google Sheet。");
-      }
-
-      setText(volunteerServicesErrorEl, "");
+  addVolunteerServiceRowBtn.addEventListener("click", function () {
+    // 新增空白列，不自動塞服務項目，也不自動塞服務內容
+    volunteerServicesDraft.push({
+      serviceItemCode: "",
+      serviceContentCode: "",
+      sortOrder: volunteerServicesDraft.length + 1,
     });
-  }
 
+    renderVolunteerServicesTable();
+
+    setText(volunteerServicesMessageEl, "已新增一列，請選擇服務項目與服務內容。");
+    setText(volunteerServicesErrorEl, "");
+  });
+}
   if (saveVolunteerServicesBtn) {
     saveVolunteerServicesBtn.addEventListener("click", function () {
       saveVolunteerServicesForManager();
