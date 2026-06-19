@@ -13,13 +13,16 @@ const appSection = document.getElementById("appSection");
 const loginForm = document.getElementById("loginForm");
 const loginPasswordInput = document.getElementById("loginPassword");
 const loginErrorEl = document.getElementById("loginError");
+const loginSubmitBtn = loginForm ? loginForm.querySelector('button[type="submit"]') : null;
 
 const volunteerForm = document.getElementById("volunteer-form");
 const volunteerNameInput = document.getElementById("volunteerName");
 const volunteerIdInput = document.getElementById("volunteerId");
 const volunteerSubmitBtn = document.getElementById("volunteerSubmitBtn");
+const cancelVolunteerEditBtn = document.getElementById("cancelVolunteerEditBtn");
 const volunteerListEl = document.getElementById("volunteerList");
 const volunteerIdErrorEl = document.getElementById("volunteerIdError");
+const volunteerFormStatusEl = document.getElementById("volunteerFormStatus");
 
 const recordVolunteerSelect = document.getElementById("recordVolunteerName");
 const recordVolunteerIdInput = document.getElementById("recordVolunteerId");
@@ -28,10 +31,12 @@ const recordVolunteerIdInput = document.getElementById("recordVolunteerId");
 const serviceManagerVolunteerSelect = document.getElementById("serviceManagerVolunteerSelect");
 const loadVolunteerServicesBtn = document.getElementById("loadVolunteerServicesBtn");
 const volunteerServicesTableBody = document.getElementById("volunteerServicesTableBody");
+const volunteerServicesCurrentEditingMessageEl = document.getElementById("volunteerServicesCurrentEditingMessage");
 const volunteerServicesMessageEl = document.getElementById("volunteerServicesMessage");
 const volunteerServicesErrorEl = document.getElementById("volunteerServicesError");
 const addVolunteerServiceRowBtn = document.getElementById("addVolunteerServiceRowBtn");
 const saveVolunteerServicesBtn = document.getElementById("saveVolunteerServicesBtn");
+const cancelVolunteerServicesEditBtn = document.getElementById("cancelVolunteerServicesEditBtn");
 const recordForm = document.getElementById("record-form");
 const recordServiceDraftTableBody = document.getElementById("recordServiceDraftTableBody");
 const recordErrorEl = document.getElementById("recordError");
@@ -68,6 +73,7 @@ const volunteers = [];
 const records = [];
 // 目前管理區正在編輯的志工預設服務項目
 const volunteerServicesDraft = [];
+let serviceManagerEditingVolunteerId = "";
 const batchDraftRows = [];
 let displayMode = "readable";
 let editingVolunteerIndex = null;
@@ -250,6 +256,65 @@ function getAuthHeaders() {
 function setText(el, text) {
   if (!el) return;
   el.textContent = text || "";
+
+  if (el.classList && el.classList.contains("status-message")) {
+    el.classList.toggle("hidden", !text);
+  }
+}
+
+function setStatus(el, message, type = "info") {
+  if (!el) return;
+
+  // 先清掉上一個自動消失計時器，避免舊訊息誤刪新訊息
+  if (el.dataset.statusTimerId) {
+    clearTimeout(Number(el.dataset.statusTimerId));
+    delete el.dataset.statusTimerId;
+  }
+
+  el.textContent = message || "";
+
+  el.classList.remove("success", "warning", "error", "info");
+
+  if (!message) {
+    el.classList.add("hidden");
+    return;
+  }
+
+  el.classList.add(type);
+  el.classList.remove("hidden");
+
+  // 成功訊息 30 秒後自動消失
+  if (type === "success") {
+    const timerId = setTimeout(() => {
+      clearStatus(el);
+    }, 15000);
+
+    el.dataset.statusTimerId = String(timerId);
+  }
+}
+
+function clearStatus(el) {
+  setStatus(el, "");
+}
+
+function setButtonLoading(button, isLoading, loadingText) {
+  if (!button) return;
+
+  if (isLoading) {
+    if (!button.dataset.originalText) {
+      button.dataset.originalText = button.textContent;
+    }
+
+    button.textContent = loadingText || button.textContent;
+    button.disabled = true;
+    button.classList.add("is-loading");
+    return;
+  }
+
+  button.textContent = button.dataset.originalText || button.textContent;
+  delete button.dataset.originalText;
+  button.disabled = false;
+  button.classList.remove("is-loading");
 }
 
 function trimValue(inputEl) {
@@ -671,15 +736,21 @@ function removeDuplicateVolunteerServices() {
 }
 
 
-function renderVolunteerServicesTable() {
+function renderVolunteerServicesTable(emptyMessage = "") {
   if (!volunteerServicesTableBody) return;
 
   volunteerServicesTableBody.innerHTML = "";
 
   if (volunteerServicesDraft.length === 0) {
+    const message = emptyMessage || (
+      serviceManagerEditingVolunteerId
+        ? "這位志工目前沒有預設服務項目"
+        : "請先選擇志工並載入服務項目"
+    );
+
     volunteerServicesTableBody.innerHTML = `
       <tr>
-        <td colspan="4">這位志工目前沒有預設服務項目</td>
+        <td colspan="4">${message}</td>
       </tr>
     `;
     return;
@@ -778,8 +849,8 @@ function renderVolunteerServicesTable() {
 
         renderVolunteerServicesTable();
 
-        setText(volunteerServicesErrorEl, "");
-        setText(volunteerServicesMessageEl, "");
+        clearStatus(volunteerServicesErrorEl);
+        clearStatus(volunteerServicesMessageEl);
 
         return;
       }
@@ -792,8 +863,8 @@ function renderVolunteerServicesTable() {
         renderVolunteerServicesTable();
 
         if (removedCount > 0) {
-          setText(volunteerServicesMessageEl, "已自動移除重複的服務項目。");
-          setText(volunteerServicesErrorEl, "");
+          setStatus(volunteerServicesMessageEl, "已自動移除重複的服務項目。", "warning");
+          clearStatus(volunteerServicesErrorEl);
           showToast("重複項目已自動移除", "warning");
         }
 
@@ -822,10 +893,70 @@ function renderVolunteerServicesTable() {
       });
 
       renderVolunteerServicesTable();
-      setText(volunteerServicesMessageEl, "已刪除一列，記得按儲存才會寫入 Google Sheet。");
-      setText(volunteerServicesErrorEl, "");
+      setStatus(volunteerServicesMessageEl, "已刪除一列，記得按儲存才會寫入 Google Sheet。", "warning");
+      clearStatus(volunteerServicesErrorEl);
     });
   });
+}
+
+function getVolunteerById(volunteerId) {
+  const targetId = String(volunteerId || "").trim().toUpperCase();
+  return volunteers.find((v) => String(v.id || "").trim().toUpperCase() === targetId) || null;
+}
+
+function getVolunteerDisplayNameById(volunteerId) {
+  const volunteer = getVolunteerById(volunteerId);
+  return volunteer ? `${volunteer.name}（${volunteer.id}）` : volunteerId;
+}
+
+function setVolunteerServicesEditingState(volunteerId) {
+  serviceManagerEditingVolunteerId = String(volunteerId || "").trim().toUpperCase();
+
+  if (!serviceManagerEditingVolunteerId) {
+    clearStatus(volunteerServicesCurrentEditingMessageEl);
+    cancelVolunteerServicesEditBtn?.classList.add("hidden");
+    return;
+  }
+
+  setStatus(
+    volunteerServicesCurrentEditingMessageEl,
+    `目前正在編輯：${getVolunteerDisplayNameById(serviceManagerEditingVolunteerId)}`,
+    "info"
+  );
+
+  cancelVolunteerServicesEditBtn?.classList.remove("hidden");
+}
+
+function clearVolunteerServicesManagerState(options = {}) {
+  const {
+    keepSelect = false,
+    successMessage = "",
+    infoMessage = "",
+  } = options;
+
+  serviceManagerEditingVolunteerId = "";
+  volunteerServicesDraft.length = 0;
+
+  if (serviceManagerVolunteerSelect && !keepSelect) {
+    serviceManagerVolunteerSelect.value = "";
+  }
+
+  renderVolunteerServicesTable("請先選擇志工並載入服務項目");
+  clearStatus(volunteerServicesCurrentEditingMessageEl);
+  clearStatus(volunteerServicesErrorEl);
+  cancelVolunteerServicesEditBtn?.classList.add("hidden");
+
+  if (successMessage) {
+    setStatus(volunteerServicesMessageEl, successMessage, "success");
+    return;
+  }
+
+  if (infoMessage) {
+    setStatus(volunteerServicesMessageEl, infoMessage, "info");
+    return;
+  }
+
+  clearStatus(volunteerServicesMessageEl);
 }
 
 async function loadVolunteerServicesForManager() {
@@ -833,13 +964,16 @@ async function loadVolunteerServicesForManager() {
     ? serviceManagerVolunteerSelect.value
     : "";
 
-  setText(volunteerServicesErrorEl, "");
-  setText(volunteerServicesMessageEl, "");
+  clearStatus(volunteerServicesErrorEl);
+  clearStatus(volunteerServicesMessageEl);
 
   if (!volunteerId) {
-    setText(volunteerServicesErrorEl, "請先選擇志工。");
+    clearVolunteerServicesManagerState({ keepSelect: true });
+    setStatus(volunteerServicesErrorEl, "請先選擇志工。", "warning");
     return;
   }
+
+  setButtonLoading(loadVolunteerServicesBtn, true, "查詢中...");
 
   try {
     const resp = await fetch(
@@ -853,7 +987,7 @@ async function loadVolunteerServicesForManager() {
     const data = await resp.json();
 
     if (!resp.ok || !data.ok) {
-      setText(volunteerServicesErrorEl, data.message || "讀取服務項目失敗。");
+      setStatus(volunteerServicesErrorEl, data.message || "讀取服務項目失敗。", "error");
       return;
     }
 
@@ -871,36 +1005,51 @@ async function loadVolunteerServicesForManager() {
 
     const removedCount = removeDuplicateVolunteerServices();
 
+    setVolunteerServicesEditingState(volunteerId);
     renderVolunteerServicesTable();
 
+    const displayName = getVolunteerDisplayNameById(volunteerId);
+
     if (removedCount > 0) {
-      setText(
+      setStatus(
         volunteerServicesMessageEl,
-        `已載入 ${volunteerServicesDraft.length} 筆服務項目，並自動移除 ${removedCount} 筆重複項目。記得按儲存才會寫回 Google Sheet。`
+        `已載入 ${displayName} 的 ${volunteerServicesDraft.length} 筆服務項目，並自動移除 ${removedCount} 筆重複項目。記得按儲存才會寫回 Google Sheet。`,
+        "warning"
       );
     } else {
-      setText(volunteerServicesMessageEl, `已載入 ${volunteerServicesDraft.length} 筆服務項目。`);
+      setStatus(volunteerServicesMessageEl, `已載入 ${displayName} 的 ${volunteerServicesDraft.length} 筆服務項目。`, "success");
     }
   } catch (err) {
     console.error(err);
-    setText(volunteerServicesErrorEl, "無法連線到後端，讀取服務項目失敗。");
+    setStatus(volunteerServicesErrorEl, "無法連線到後端，讀取服務項目失敗。", "error");
+  } finally {
+    setButtonLoading(loadVolunteerServicesBtn, false);
   }
 }
 async function saveVolunteerServicesForManager() {
-  const volunteerId = serviceManagerVolunteerSelect
+  const selectedVolunteerId = serviceManagerVolunteerSelect
     ? serviceManagerVolunteerSelect.value
     : "";
 
-  setText(volunteerServicesErrorEl, "");
-  setText(volunteerServicesMessageEl, "");
+  const volunteerId = serviceManagerEditingVolunteerId || selectedVolunteerId;
+
+  clearStatus(volunteerServicesErrorEl);
+  clearStatus(volunteerServicesMessageEl);
 
   if (!volunteerId) {
-    setText(volunteerServicesErrorEl, "請先選擇志工。");
+    setStatus(volunteerServicesErrorEl, "請先選擇志工並查詢服務項目。", "warning");
     return;
   }
 
+  if (!serviceManagerEditingVolunteerId || selectedVolunteerId !== serviceManagerEditingVolunteerId) {
+    setStatus(volunteerServicesErrorEl, "請先按「查詢服務項目內容」，確認目前要編輯的志工。", "warning");
+    return;
+  }
+
+  const displayName = getVolunteerDisplayNameById(volunteerId);
+
   const ok = await showConfirm(
-    "確定要儲存目前畫面上的服務項目嗎？這會覆蓋這位志工原本的預設服務項目。",
+    `確定要儲存 ${displayName} 目前畫面上的服務項目嗎？這會覆蓋這位志工原本的預設服務項目。`,
     "儲存",
     "取消"
   );
@@ -912,6 +1061,8 @@ async function saveVolunteerServicesForManager() {
     serviceContentCode: padCode4(service.serviceContentCode),
     sortOrder: Number(service.sortOrder || index + 1),
   }));
+
+  setButtonLoading(saveVolunteerServicesBtn, true, "儲存中...");
 
   try {
     const resp = await fetch(
@@ -926,21 +1077,26 @@ async function saveVolunteerServicesForManager() {
     const data = await resp.json();
 
     if (!resp.ok || !data.ok) {
-      setText(volunteerServicesErrorEl, data.message || "儲存服務項目失敗。");
+      setStatus(volunteerServicesErrorEl, data.message || "儲存服務項目失敗。", "error");
       return;
     }
 
-    setText(volunteerServicesMessageEl, `已儲存 ${services.length} 筆服務項目。`);
-    showToast("志工預設服務項目已儲存", "success");
-
-    // 儲存後重新載入一次，確認管理區畫面跟 Google Sheet 同步
-    await loadVolunteerServicesForManager();
-
     // 如果「新增服務紀錄」目前選的就是同一位志工，也同步更新上方多列表格
     await refreshRecordDraftTableIfCurrentVolunteer(volunteerId);
+
+    const volunteer = getVolunteerById(volunteerId);
+    const volunteerName = volunteer ? volunteer.name : displayName;
+
+    clearVolunteerServicesManagerState({
+      successMessage: `${volunteerName}志工的預設服務項目已儲存完畢。`,
+    });
+
+    showToast(`${volunteerName}志工的預設服務項目已儲存完畢`, "success");
   } catch (err) {
     console.error(err);
-    setText(volunteerServicesErrorEl, "無法連線到後端，儲存服務項目失敗。");
+    setStatus(volunteerServicesErrorEl, "無法連線到後端，儲存服務項目失敗。", "error");
+  } finally {
+    setButtonLoading(saveVolunteerServicesBtn, false);
   }
 }
 async function loadVolunteerServicesForRecord(volunteerId) {
@@ -1605,6 +1761,31 @@ async function refreshRecordDraftTableIfCurrentVolunteer(volunteerId) {
 }
 
 function initVolunteerServicesManager() {
+  renderVolunteerServicesTable("請先選擇志工並載入服務項目");
+
+  if (serviceManagerVolunteerSelect) {
+    serviceManagerVolunteerSelect.addEventListener("change", function () {
+      const volunteerId = serviceManagerVolunteerSelect.value;
+
+      if (!volunteerId) {
+        clearVolunteerServicesManagerState();
+        return;
+      }
+
+      serviceManagerEditingVolunteerId = "";
+      volunteerServicesDraft.length = 0;
+      renderVolunteerServicesTable("請按「查詢服務項目內容」載入這位志工的資料");
+      clearStatus(volunteerServicesCurrentEditingMessageEl);
+      clearStatus(volunteerServicesErrorEl);
+      cancelVolunteerServicesEditBtn?.classList.add("hidden");
+      setStatus(
+        volunteerServicesMessageEl,
+        `已選擇 ${getVolunteerDisplayNameById(volunteerId)}，請按「查詢服務項目內容」開始編輯。`,
+        "info"
+      );
+    });
+  }
+
   if (loadVolunteerServicesBtn) {
     loadVolunteerServicesBtn.addEventListener("click", function () {
       loadVolunteerServicesForManager();
@@ -1613,6 +1794,11 @@ function initVolunteerServicesManager() {
 
   if (addVolunteerServiceRowBtn) {
     addVolunteerServiceRowBtn.addEventListener("click", function () {
+      if (!serviceManagerEditingVolunteerId) {
+        setStatus(volunteerServicesErrorEl, "請先選擇志工並查詢服務項目，再新增服務項目列。", "warning");
+        return;
+      }
+
       // 新增空白列，不自動塞服務項目，也不自動塞服務內容
       volunteerServicesDraft.push({
         serviceItemCode: "",
@@ -1622,14 +1808,23 @@ function initVolunteerServicesManager() {
 
       renderVolunteerServicesTable();
 
-      setText(volunteerServicesMessageEl, "已新增一列，請選擇服務項目與服務內容。");
-      setText(volunteerServicesErrorEl, "");
+      setStatus(volunteerServicesMessageEl, "已新增一列，請選擇服務項目與服務內容。", "info");
+      clearStatus(volunteerServicesErrorEl);
     });
   }
 
   if (saveVolunteerServicesBtn) {
     saveVolunteerServicesBtn.addEventListener("click", function () {
       saveVolunteerServicesForManager();
+    });
+  }
+
+  if (cancelVolunteerServicesEditBtn) {
+    cancelVolunteerServicesEditBtn.addEventListener("click", function () {
+      clearVolunteerServicesManagerState({
+        infoMessage: "已取消編輯服務項目。",
+      });
+      showToast("已取消編輯服務項目", "info");
     });
   }
 }
@@ -1673,14 +1868,16 @@ function initLogin() {
   loginForm.addEventListener("submit", async function (e) {
     e.preventDefault();
 
-    setText(loginErrorEl, "");
+    clearStatus(loginErrorEl);
 
     const pwd = (loginPasswordInput?.value || "").trim();
 
     if (!pwd) {
-      setText(loginErrorEl, "請先輸入密碼。");
+      setStatus(loginErrorEl, "請先輸入密碼。", "warning");
       return;
     }
+
+    setButtonLoading(loginSubmitBtn, true, "登入中...");
 
     try {
       const resp = await fetch(`${API_BASE_URL}/api/login`, {
@@ -1696,7 +1893,7 @@ function initLogin() {
       const data = await resp.json();
 
       if (!resp.ok || !data.accessToken) {
-        setText(loginErrorEl, "密碼錯誤，請再試一次。");
+        setStatus(loginErrorEl, "密碼錯誤，請再試一次。", "error");
 
         if (loginPasswordInput) {
           loginPasswordInput.value = "";
@@ -1719,7 +1916,9 @@ function initLogin() {
       await loadVolunteersFromGSheet();
     } catch (err) {
       console.error(err);
-      setText(loginErrorEl, "無法連線到後端，請確認後端是否已啟動。");
+      setStatus(loginErrorEl, "無法連線到後端，請確認後端是否已啟動。", "error");
+    } finally {
+      setButtonLoading(loginSubmitBtn, false);
     }
   });
 }
@@ -1753,17 +1952,32 @@ function enterVolunteerEditMode(index) {
   editingVolunteerIndex = index;
   const v = volunteers[index];
   if (!v) return;
+
   if (volunteerNameInput) volunteerNameInput.value = v.name;
   if (volunteerIdInput) volunteerIdInput.value = v.id;
+
   setText(volunteerIdErrorEl, "");
+  setStatus(volunteerFormStatusEl, `正在編輯：${v.name}（${v.id}）。下方名單會先隱藏這位志工，避免重複操作。`, "info");
+
   if (volunteerSubmitBtn) volunteerSubmitBtn.textContent = "儲存修改";
+  cancelVolunteerEditBtn?.classList.remove("hidden");
+
+  renderVolunteerList();
+  volunteerNameInput?.focus();
 }
 
 function exitVolunteerEditMode() {
   editingVolunteerIndex = null;
+
   if (volunteerForm) volunteerForm.reset();
+
   setText(volunteerIdErrorEl, "");
+  clearStatus(volunteerFormStatusEl);
+
   if (volunteerSubmitBtn) volunteerSubmitBtn.textContent = "新增志工";
+  cancelVolunteerEditBtn?.classList.add("hidden");
+
+  renderVolunteerList();
 }
 
 // ============================================================
@@ -1772,12 +1986,30 @@ function exitVolunteerEditMode() {
 
 function renderVolunteerList() {
   if (!volunteerListEl) return;
+
   volunteerListEl.innerHTML = "";
+
   if (volunteers.length === 0) {
     volunteerListEl.innerHTML = '<li style="color:#888780;font-size:0.88rem;padding:0.4rem 0;">尚未建立志工名單</li>';
     return;
   }
+
+  if (editingVolunteerIndex !== null && volunteers[editingVolunteerIndex]) {
+    const editingVolunteer = volunteers[editingVolunteerIndex];
+    const noteLi = document.createElement("li");
+    noteLi.className = "volunteer-editing-note";
+    noteLi.textContent = `編輯中：${editingVolunteer.name}（${editingVolunteer.id}）。完成或取消後會回到名單。`;
+    volunteerListEl.appendChild(noteLi);
+  }
+
+  let visibleCount = 0;
+
   volunteers.forEach((v, index) => {
+    // 正在編輯的那一筆先不要正常顯示，避免使用者重複按修改或刪除。
+    if (editingVolunteerIndex === index) {
+      return;
+    }
+
     const li = document.createElement("li");
     li.dataset.index = String(index);
     li.innerHTML = `
@@ -1789,7 +2021,15 @@ function renderVolunteerList() {
         <button type="button" class="btn btn-small btn-danger"    data-action="delete">刪除</button>
       </div>`;
     volunteerListEl.appendChild(li);
+    visibleCount += 1;
   });
+
+  if (visibleCount === 0) {
+    const emptyLi = document.createElement("li");
+    emptyLi.style.cssText = "color:#888780;font-size:0.88rem;padding:0.4rem 0;";
+    emptyLi.textContent = "其他志工名單目前沒有可顯示的資料。";
+    volunteerListEl.appendChild(emptyLi);
+  }
 }
 
 function renderVolunteerSelect() {
@@ -1893,6 +2133,13 @@ function updateBatchDraftVolunteerIdentity(oldId, updatedVolunteer) {
 function initVolunteerForm() {
   if (!volunteerForm) return;
 
+  if (cancelVolunteerEditBtn) {
+    cancelVolunteerEditBtn.addEventListener("click", function () {
+      exitVolunteerEditMode();
+      showToast("已取消修改志工資料", "info");
+    });
+  }
+
   volunteerForm.addEventListener("submit", async function (event) {
     event.preventDefault();
 
@@ -1903,12 +2150,14 @@ function initVolunteerForm() {
       : "";
 
     if (!name || !id) {
+      setStatus(volunteerFormStatusEl, "請輸入完整的志工姓名與身分證字號。", "warning");
       showToast("請輸入完整的志工姓名與身分證字號", "warning");
       return;
     }
 
     if (!isValidTaiwanId(id)) {
       setText(volunteerIdErrorEl, "身分證格式：1 英文字母 + 9 數字（例 A123456789）");
+      setStatus(volunteerFormStatusEl, "身分證格式不正確，請確認後再儲存。", "error");
       showToast("身分證格式不正確", "error");
       return;
     }
@@ -1921,18 +2170,26 @@ function initVolunteerForm() {
     });
 
     if (exists) {
+      setStatus(volunteerFormStatusEl, "此身分證字號已在志工名單中。", "warning");
       showToast("此身分證字號已在志工名單中", "warning");
       return;
     }
 
+    const loadingText = editingVolunteerIndex === null ? "新增中..." : "儲存中...";
+    setButtonLoading(volunteerSubmitBtn, true, loadingText);
+
     const syncOk = await sendVolunteerToGSheet({ name, id, oldId });
 
+    setButtonLoading(volunteerSubmitBtn, false);
+
     if (!syncOk) {
+      setStatus(volunteerFormStatusEl, "後端同步失敗，這次沒有更新志工資料。", "error");
       return;
     }
 
     if (editingVolunteerIndex === null) {
       volunteers.push({ name, id });
+      setStatus(volunteerFormStatusEl, `已新增志工「${name}」。`, "success");
       showToast(`已新增志工「${name}」`, "success");
     } else {
       const updatedRecordCount = updateLocalRecordsVolunteerIdentity(oldId, { name, id });
@@ -1946,13 +2203,18 @@ function initVolunteerForm() {
         renderRecordsTable();
       }
 
+      setStatus(volunteerFormStatusEl, `已更新志工「${name}」的資料。`, "success");
       showToast(`已更新志工「${name}」的資料`, "success");
     }
 
+    const successMessage = editingVolunteerIndex === null
+      ? `已新增志工「${name}」。`
+      : `已更新志工「${name}」的資料。`;
+
     saveVolunteersToStorage();
-    renderVolunteerList();
     renderVolunteerSelect();
     exitVolunteerEditMode();
+    setStatus(volunteerFormStatusEl, successMessage, "success");
 
     await loadVolunteersFromGSheet();
   });
@@ -1980,23 +2242,30 @@ function initVolunteerListActions() {
   const ok = await showConfirm(`確定要刪除志工「${v.name}」嗎？`);
   if (!ok) return;
 
+  setButtonLoading(button, true, "刪除中...");
+
   const deleteOk = await deleteVolunteerFromGSheet(v);
+
+  setButtonLoading(button, false);
 
   if (!deleteOk) {
     return;
   }
 
   volunteers.splice(index, 1);
-  saveVolunteersToStorage();
-  renderVolunteerList();
-  renderVolunteerSelect();
-  showToast(`已刪除志工「${v.name}」`, "info");
 
   if (editingVolunteerIndex === index) {
     exitVolunteerEditMode();
   } else if (editingVolunteerIndex !== null && editingVolunteerIndex > index) {
     editingVolunteerIndex -= 1;
+    renderVolunteerList();
+  } else {
+    renderVolunteerList();
   }
+
+  saveVolunteersToStorage();
+  renderVolunteerSelect();
+  showToast(`已刪除志工「${v.name}」`, "info");
 
   if (recordVolunteerSelect?.value === v.name) {
     recordVolunteerSelect.value = "";
@@ -2336,6 +2605,7 @@ function initRecordForm() {
       return;
     }
 
+    setButtonLoading(recordSubmitBtn, true, "新增中...");
     records.push(...result.records);
 
     saveRecordsToStorage();
@@ -2344,7 +2614,8 @@ function initRecordForm() {
 
     showToast(`已新增 ${result.records.length} 筆服務紀錄`, "success");
 
-    setText(recordErrorEl, "");
+    clearStatus(recordErrorEl);
+    setButtonLoading(recordSubmitBtn, false);
   });
 }
 
@@ -2576,11 +2847,14 @@ function validateBatchCommonInputs() {
 function buildBatchPreviewRows() {
   setText(batchErrorEl, "");
 
+  setButtonLoading(batchBuildPreviewBtn, true, "建立中...");
+
   const commonResult = validateBatchCommonInputs();
 
   if (!commonResult.ok) {
     setText(batchErrorEl, commonResult.message);
     showToast(commonResult.message, "warning");
+    setButtonLoading(batchBuildPreviewBtn, false);
     return;
   }
 
@@ -2590,6 +2864,7 @@ function buildBatchPreviewRows() {
     const message = "請至少勾選一位參與志工。";
     setText(batchErrorEl, message);
     showToast(message, "warning");
+    setButtonLoading(batchBuildPreviewBtn, false);
     return;
   }
 
@@ -2606,6 +2881,7 @@ function buildBatchPreviewRows() {
 
   renderBatchPreviewTable();
   showToast(`已建立 ${batchDraftRows.length} 位志工的批次預覽表`, "success");
+  setButtonLoading(batchBuildPreviewBtn, false);
 }
 
 function getBatchPreviewInput(rowEl, field) {
@@ -3005,11 +3281,14 @@ function initBatchRecords() {
       e.preventDefault();
       setText(batchErrorEl, "");
 
+      setButtonLoading(batchSubmitBtn, true, "新增中...");
+
       const result = validateBatchDraftRowsForRecords();
 
       if (!result.ok) {
         setText(batchErrorEl, result.message);
         showToast(result.message, "warning");
+        setButtonLoading(batchSubmitBtn, false);
         return;
       }
 
@@ -3019,6 +3298,7 @@ function initBatchRecords() {
       clearBatchDraft();
 
       showToast(`已批次新增 ${result.records.length} 筆服務紀錄`, "success");
+      setButtonLoading(batchSubmitBtn, false);
     });
   }
 }
@@ -3060,12 +3340,16 @@ function initCopyButton() {
     if (records.length === 0) { showToast("目前沒有資料可複製", "warning"); return; }
     const text = buildCopyTextFromCurrentTableBody();
     if (!text) { showToast("目前表格沒有可複製的資料", "warning"); return; }
+    setButtonLoading(copyTableBtn, true, "複製中...");
+
     try {
       await copyTextToClipboard(text);
       showToast(`已複製 ${records.length} 筆資料到剪貼簿`, "success");
     } catch (err) {
       console.error(err);
       showToast("複製失敗，請確認瀏覽器權限或改用 HTTPS", "error");
+    } finally {
+      setButtonLoading(copyTableBtn, false);
     }
   });
 }
@@ -3086,6 +3370,8 @@ function initClearRecordsButton() {
     const ok = await showConfirm("確定要清空所有服務紀錄嗎？此操作無法復原。", "清空", "取消");
     if (!ok) return;
 
+    setButtonLoading(clearRecordsBtn, true, "清空中...");
+
     records.length = 0;
     saveRecordsToStorage();
     renderRecordsTable();
@@ -3097,6 +3383,7 @@ function initClearRecordsButton() {
     resetDraftTableRowsAfterSubmit();
 
     showToast("已清空所有服務紀錄", "info");
+    setButtonLoading(clearRecordsBtn, false);
   });
 }
 

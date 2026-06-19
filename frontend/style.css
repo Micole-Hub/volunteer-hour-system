@@ -707,3 +707,106 @@ tbody tr:nth-child(even):hover { background: #D9EEC5; }
 #recordServiceDraftWrapper input[type="text"] {
   min-width: 72px;
 }
+
+/* ===================================================
+   表單操作與狀態訊息
+   =================================================== */
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.status-message {
+  margin: 0.85rem 0 1rem;
+  padding: 0.72rem 0.9rem;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.55;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.status-message::before {
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.status-message.success {
+  background: #F0FDF4;
+  border-color: #86EFAC;
+  color: #166534;
+}
+
+.status-message.success::before { content: "✓"; }
+
+.status-message.warning {
+  background: #FFFBEB;
+  border-color: #FCD34D;
+  color: #92400E;
+}
+
+.status-message.warning::before { content: "⚠"; }
+
+.status-message.error {
+  background: var(--danger-light);
+  border-color: var(--danger-border);
+  color: var(--danger);
+}
+
+.status-message.error::before { content: "✕"; }
+
+.status-message.info {
+  background: #F0F9FF;
+  border-color: #7DD3FC;
+  color: #075985;
+}
+
+.status-message.info::before { content: "ℹ"; }
+
+.volunteer-editing-note {
+  background: #FFFBEB !important;
+  border: 1px dashed #FCD34D;
+  color: #92400E;
+  font-size: 0.88rem;
+  justify-content: flex-start !important;
+}
+
+.volunteer-list li.is-being-edited {
+  background: #FFFBEB;
+  border: 1px dashed #FCD34D;
+  opacity: 0.92;
+}
+
+.btn:active {
+  transform: translateY(1px) scale(0.98) !important;
+  box-shadow: none;
+}
+
+.btn:disabled,
+.btn.is-loading {
+  opacity: 0.72;
+  cursor: wait;
+  pointer-events: none;
+}
+
+.btn.is-loading::after {
+  content: "";
+  width: 0.82em;
+  height: 0.82em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: buttonSpin 0.75s linear infinite;
+}
+
+@keyframes buttonSpin {
+  to { transform: rotate(360deg); }
+}
+

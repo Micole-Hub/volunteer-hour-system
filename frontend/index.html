@@ -1,371 +1,349 @@
 <!DOCTYPE html>
-
 <html lang="zh-tw">
-<head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<link href="./style.css" rel="stylesheet"/>
-<title>大山社區發展協會 — 志工時數小幫手</title>
-</head>
-<body>
-<header class="page-header">
-<div class="page-header-inner">
-<!-- 品牌列：山形 Logo + 協會名稱 -->
-<div class="page-header-brand">
-<svg aria-hidden="true" class="brand-logo" fill="none" viewbox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
-<rect fill="#3B6D11" height="52" rx="13" width="52"></rect>
-<polygon fill="#97C459" points="10,40 26,14 42,40"></polygon>
-<polygon fill="#EAF3DE" opacity="0.75" points="20,40 31,22 42,40"></polygon>
-<line stroke="#EAF3DE" stroke-linecap="round" stroke-width="2" x1="10" x2="42" y1="40" y2="40"></line>
-</svg>
-<div class="brand-text">
-<span class="brand-assoc">大山社區發展協會</span>
-<span class="brand-sub">志工隊</span>
-</div>
-</div>
-<h1>志工時數小幫手</h1>
-<p>協會志工服務資料登錄、檢查，並可複製貼到官方匯入系統的小工具</p>
-</div>
-<!-- 波浪分隔線 -->
-<svg aria-hidden="true" class="page-header-wave" fill="none" preserveaspectratio="none" viewbox="0 0 1440 36" xmlns="http://www.w3.org/2000/svg">
-<path d="M0,36 C240,0 480,30 720,16 C960,2 1200,28 1440,14 L1440,36 Z" fill="#FAF8F4"></path>
-</svg>
-</header>
-<main class="container">
-<!-- 登入區塊 -->
-<section class="card" id="loginSection">
-<h2>登入志工時數小幫手</h2>
-<p class="section-desc">請輸入管理密碼，才能進入系統。</p>
-<form class="form-grid" id="loginForm">
-<div class="field-group full-width">
-<label for="loginPassword">登入密碼</label>
-<!-- 密碼欄位 + 眼睛切換按鈕 -->
-<div class="password-wrapper">
-<input autocomplete="current-password" id="loginPassword" placeholder="請輸入登入密碼" type="password"/>
-<button aria-label="切換顯示密碼" class="password-toggle" id="passwordToggleBtn" title="顯示／隱藏密碼" type="button">
-<!-- 睜眼：密碼隱藏中（預設顯示） -->
-<svg aria-hidden="true" class="eye-icon eye-open" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewbox="0 0 24 24">
-<path d="M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12z"></path>
-<circle cx="12" cy="12" r="3"></circle>
-</svg>
-<!-- 眼睛劃掉：密碼顯示中 -->
-<svg aria-hidden="true" class="eye-icon eye-off" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" style="display:none" viewbox="0 0 24 24">
-<path d="M17.94 17.94A10.94 10.94 0 0112 20C5 20 1 12 1 12a18.09 18.09 0 015.06-5.94"></path>
-<path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"></path>
-<line x1="1" x2="23" y1="1" y2="23"></line>
-</svg>
-</button>
-</div>
-<p class="error-message" id="loginError"></p>
-</div>
-<div class="field-group full-width">
-<button class="btn primary" type="submit">登入</button>
-</div>
-</form>
-</section>
-<!-- 系統主畫面（登入後顯示） -->
-<div class="hidden" id="appSection">
-<!-- 志工名單設定 -->
-<section class="card">
-<h2>志工名單設定</h2>
-<p class="section-desc">先建立志工的姓名與身分證字號，之後登錄服務時就可以直接選擇。</p>
-<form class="form-grid" id="volunteer-form">
-<div class="field-group">
-<label for="volunteerName">姓名</label>
-<input id="volunteerName" placeholder="請輸入志工姓名" type="text"/>
-</div>
-<div class="field-group">
-<label for="volunteerId">身分證字號</label>
-<input id="volunteerId" placeholder="請輸入志工身分證字號" type="text"/>
-<p class="error-message" id="volunteerIdError"></p>
-</div>
-<div class="field-group full-width">
-<button class="btn primary" id="volunteerSubmitBtn" type="submit">新增志工</button>
-</div>
-</form>
-<div class="volunteer-list">
-<h3>已建立志工</h3>
-<ul id="volunteerList"></ul>
-</div>
-</section>
-<!-- 志工預設服務項目管理 -->
-<section class="card">
-<h2>志工預設服務項目管理</h2>
-<p class="section-desc">
-          設定每位志工固定負責的服務項目與服務內容。之後新增服務紀錄時，選擇志工後會自動帶出這些項目。
-        </p>
-<div class="form-grid">
-<div class="field-group">
-<label for="serviceManagerVolunteerSelect">選擇志工</label>
-<select id="serviceManagerVolunteerSelect">
-<option value="">請選擇志工</option>
-</select>
-</div>
-<div class="field-group">
-<label> </label>
-<button class="btn secondary" id="loadVolunteerServicesBtn" type="button">
-              查詢服務項目內容            
-            </button>
-</div>
-</div>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr>
-<th>服務項目代碼</th>
-<th>服務內容代碼</th>
-<th>排序</th>
-<th>操作</th>
-</tr>
-</thead>
-<tbody id="volunteerServicesTableBody">
-<tr>
-<td colspan="4">請先選擇志工並載入服務項目</td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="records-actions">
-<button class="btn secondary" id="addVolunteerServiceRowBtn" type="button">
-            新增一列
-          </button>
-<button class="btn primary" id="saveVolunteerServicesBtn" type="button">
-            儲存這位志工的服務項目
-          </button>
-</div>
-<p class="section-desc" id="volunteerServicesMessage"></p>
-<p class="error-message" id="volunteerServicesError"></p>
-</section>
-<!-- 新增服務紀錄 -->
-<section class="card">
-<h2>新增服務紀錄</h2>
-<p class="section-desc">選擇志工後，系統會自動帶出這位志工的預設服務項目。請在多列表格中填寫日期、時數、人數與費用。</p>
-<form class="form-grid" id="record-form">
-<div class="field-group">
-<label for="recordVolunteerName">志工姓名</label>
-<select id="recordVolunteerName">
-<option value="">請選擇志工</option>
-</select>
-</div>
-<div class="field-group">
-<label for="recordVolunteerId">身分證字號</label>
-<input id="recordVolunteerId" placeholder="選擇志工後自動帶入" readonly="" type="text"/>
-</div>
-
-
-
-
-<div class="field-group full-width">
-<div class="table-wrapper" id="recordServiceDraftWrapper" style="margin-top: 1rem;">
-<table>
-<thead>
-<tr>
-<th>服務項目</th>
-<th>服務內容</th>
-<th>服務日期起</th>
-<th>服務日期迄</th>
-<th>小時</th>
-<th>分鐘</th>
-<th>人數</th>
-<th>人次</th>
-<th>交通費</th>
-<th>誤餐費</th>
-</tr>
-</thead>
-<tbody id="recordServiceDraftTableBody">
-<tr>
-<td colspan="10">選擇志工後，會顯示本次要新增的服務項目</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-
-
-
-<div class="field-group full-width">
-<button class="btn primary" id="recordSubmitBtn" type="submit">新增服務紀錄</button>
-</div>
-</form>
-<p class="error-message" id="recordError"></p>
-</section>
-
-<!-- 多人批次新增服務紀錄 -->
-<section class="card">
-  <div class="records-header">
-    <div>
-      <h2>多人批次新增服務紀錄</h2>
-      <p class="section-desc">
-        節日、廟會或大型活動才需要使用。平常先收起來，需要時再展開，勾選多位志工後可先建立預覽表，再逐位調整時數與費用。
-      </p>
-    </div>
-    <div class="records-actions">
-      <button type="button" class="btn secondary" id="batchToggleBtn">開啟多人批次新增</button>
-    </div>
-  </div>
-
-  <div id="batchPanel" class="hidden" style="margin-top: 1rem;">
-    <form id="batch-form" class="form-grid">
-      <div class="field-group">
-        <label for="batchStartDate">服務日期起</label>
-        <input type="date" id="batchStartDate" />
-      </div>
-      <div class="field-group">
-        <label for="batchEndDate">服務日期迄</label>
-        <input type="date" id="batchEndDate" />
-      </div>
-
-      <div class="field-group">
-        <label for="batchServiceItemSelect">服務項目</label>
-        <select id="batchServiceItemSelect">
-          <option value="">請選擇服務項目</option>
-        </select>
-      </div>
-      <div class="field-group">
-        <label for="batchServiceContentSelect">服務內容</label>
-        <select id="batchServiceContentSelect">
-          <option value="">請先選擇服務項目</option>
-        </select>
-      </div>
-
-      <div class="field-group full-width">
-        <label>預設服務時數與人數</label>
-        <div class="inline-fields">
-          <div class="inline-field-group">
-            <span>小時</span>
-            <input type="number" id="batchHours" min="0" step="1" placeholder="小時" />
-          </div>
-          <div class="inline-field-group">
-            <span>分鐘</span>
-            <input type="number" id="batchMinutes" min="0" max="59" step="1" placeholder="分鐘" />
-          </div>
-          <div class="inline-field-group">
-            <span>人數</span>
-            <input type="number" id="batchClientCount" min="0" step="1" value="0" placeholder="人數" />
-          </div>
-          <div class="inline-field-group">
-            <span>交通費</span>
-            <input type="number" id="batchTrafficFee" min="0" step="1" value="0" />
-          </div>
-          <div class="inline-field-group">
-            <span>誤餐費</span>
-            <input type="number" id="batchMealFee" min="0" step="1" value="0" />
+  <head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link href="./style.css" rel="stylesheet">
+    <title>volunteer-hour-system</title>
+  </head>
+  <body>
+    <header class="page-header">
+      <div class="page-header-inner">
+        <!-- 品牌列：山形 Logo + 協會名稱 -->
+        <div class="page-header-brand">
+          <svg aria-hidden="true" class="brand-logo" fill="none" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
+            <rect fill="#3B6D11" height="52" rx="13" width="52"></rect>
+            <polygon fill="#97C459" points="10,40 26,14 42,40"></polygon>
+            <polygon fill="#EAF3DE" opacity="0.75" points="20,40 31,22 42,40"></polygon>
+            <line stroke="#EAF3DE" stroke-linecap="round" stroke-width="2" x1="10" x2="42" y1="40" y2="40"></line>
+          </svg>
+          <div class="brand-text">
+            <span class="brand-assoc">大山社區發展協會</span>
+            <span class="brand-sub">志工隊</span>
           </div>
         </div>
+        <h1>志工時數系統</h1>
+        <p>協會志工服務資料登錄、檢查，並可複製貼到官方匯入系統的小工具</p>
       </div>
-
-      <div class="field-group full-width">
-        <label>勾選參與志工</label>
-        <div class="records-actions" style="justify-content:flex-start; margin-bottom:0.6rem;">
-          <label style="display:flex; align-items:center; gap:0.4rem;">
-            <input type="checkbox" id="batchSelectAll" />
-            全選
-          </label>
-          <button type="button" class="btn btn-small btn-secondary" id="batchClearSelectedBtn">清除選取</button>
-        </div>
-        <div id="batchVolunteerChecklist" class="volunteer-list" style="max-height: 220px; overflow:auto; border:1px solid #E1DED2; border-radius:10px; padding:0.8rem;">
-          尚未建立志工名單
-        </div>
+      <!-- 波浪分隔線 -->
+      <svg aria-hidden="true" class="page-header-wave" fill="none" preserveAspectRatio="none" viewBox="0 0 1440 36" xmlns="http://www.w3.org/2000/svg">
+        <path d="M0,36 C240,0 480,30 720,16 C960,2 1200,28 1440,14 L1440,36 Z" fill="#FAF8F4"></path>
+      </svg>
+    </header>
+    <main class="container">
+      <!-- 登入區塊 -->
+      <section class="card" id="loginSection">
+        <h2>登入</h2>
+        <p class="section-desc">請輸入管理密碼，才能進入系統。</p>
+        <form class="form-grid" id="loginForm">
+          <div class="field-group full-width">
+            <label for="loginPassword">登入密碼</label>
+            <!-- 密碼欄位 + 眼睛切換按鈕 -->
+            <div class="password-wrapper">
+              <input autocomplete="current-password" id="loginPassword" placeholder="請輸入登入密碼" type="password">
+              <button aria-label="切換顯示密碼" class="password-toggle" id="passwordToggleBtn" title="顯示／隱藏密碼" type="button">
+                <!-- 睜眼：密碼隱藏中（預設顯示） -->
+                <svg aria-hidden="true" class="eye-icon eye-open" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewBox="0 0 24 24">
+                  <path d="M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <!-- 眼睛劃掉：密碼顯示中 -->
+                <svg aria-hidden="true" class="eye-icon eye-off" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" style="display:none" viewBox="0 0 24 24">
+                  <path d="M17.94 17.94A10.94 10.94 0 0112 20C5 20 1 12 1 12a18.09 18.09 0 015.06-5.94"></path>
+                  <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"></path>
+                  <line x1="1" x2="23" y1="1" y2="23"></line>
+                </svg>
+              </button>
+            </div>
+            <p aria-live="polite" class="status-message error hidden" id="loginError"></p>
+          </div>
+          <div class="field-group full-width">
+            <button class="btn primary" type="submit">登入</button>
+          </div>
+        </form>
+      </section>
+      <!-- 系統主畫面（登入後顯示） -->
+      <div class="hidden" id="appSection">
+        <!-- 志工名單設定 -->
+        <section class="card">
+          <h2>志工名單設定</h2>
+          <p class="section-desc">先建立志工的姓名與身分證字號，之後登錄服務時就可以直接選擇。</p>
+          <p aria-live="polite" class="status-message info hidden" id="volunteerFormStatus"></p>
+          <form class="form-grid" id="volunteer-form">
+            <div class="field-group">
+              <label for="volunteerName">姓名</label>
+              <input id="volunteerName" placeholder="請輸入志工姓名" type="text">
+            </div>
+            <div class="field-group">
+              <label for="volunteerId">身分證字號</label>
+              <input id="volunteerId" placeholder="請輸入志工身分證字號" type="text">
+              <p class="error-message" id="volunteerIdError"></p>
+            </div>
+            <div class="field-group full-width">
+              <div class="form-actions">
+                <button class="btn primary" id="volunteerSubmitBtn" type="submit">新增志工</button>
+                <button class="btn secondary hidden" id="cancelVolunteerEditBtn" type="button">取消修改</button>
+              </div>
+            </div>
+          </form>
+          <div class="volunteer-list">
+            <h3>已建立志工</h3>
+            <ul id="volunteerList"></ul>
+          </div>
+        </section>
+        <!-- 志工預設服務項目管理 -->
+        <section class="card">
+          <h2>志工預設服務項目管理</h2>
+          <p class="section-desc">設定每位志工固定負責的服務項目與服務內容。之後新增服務紀錄時，選擇志工後會自動帶出這些項目。</p>
+          <p aria-live="polite" class="status-message info hidden" id="volunteerServicesCurrentEditingMessage"></p>
+          <p aria-live="polite" class="status-message success hidden" id="volunteerServicesMessage"></p>
+          <p aria-live="polite" class="status-message error hidden" id="volunteerServicesError"></p>
+          <div class="form-grid">
+            <div class="field-group">
+              <label for="serviceManagerVolunteerSelect">選擇志工</label>
+              <select id="serviceManagerVolunteerSelect">
+                <option value="">請選擇志工</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label></label>
+              <button class="btn secondary" id="loadVolunteerServicesBtn" type="button">查詢服務項目內容</button>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>服務項目代碼</th>
+                  <th>服務內容代碼</th>
+                  <th>排序</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="volunteerServicesTableBody">
+                <tr>
+                  <td colspan="4">請先選擇志工並載入服務項目</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="records-actions">
+            <button class="btn secondary" id="addVolunteerServiceRowBtn" type="button">新增一列</button>
+            <button class="btn primary" id="saveVolunteerServicesBtn" type="button">儲存這位志工的服務項目</button>
+            <button class="btn secondary hidden" id="cancelVolunteerServicesEditBtn" type="button">取消編輯服務項目</button>
+          </div>
+        </section>
+        <!-- 新增服務紀錄 -->
+        <section class="card">
+          <h2>新增服務紀錄</h2>
+          <p class="section-desc">選擇志工後，系統會自動帶出這位志工的預設服務項目。請在多列表格中填寫日期、時數、人數與費用。</p>
+          <form class="form-grid" id="record-form">
+            <div class="field-group">
+              <label for="recordVolunteerName">志工姓名</label>
+              <select id="recordVolunteerName">
+                <option value="">請選擇志工</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="recordVolunteerId">身分證字號</label>
+              <input id="recordVolunteerId" placeholder="選擇志工後自動帶入" readonly type="text">
+            </div>
+            <div class="field-group full-width">
+              <div class="table-wrapper" id="recordServiceDraftWrapper" style="margin-top: 1rem;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>服務項目</th>
+                      <th>服務內容</th>
+                      <th>服務日期起</th>
+                      <th>服務日期迄</th>
+                      <th>小時</th>
+                      <th>分鐘</th>
+                      <th>人數</th>
+                      <th>人次</th>
+                      <th>交通費</th>
+                      <th>誤餐費</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recordServiceDraftTableBody">
+                    <tr>
+                      <td colspan="10">選擇志工後，會顯示本次要新增的服務項目</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="field-group full-width">
+              <button class="btn primary" id="recordSubmitBtn" type="submit">新增服務紀錄</button>
+            </div>
+          </form>
+          <p aria-live="polite" class="status-message error hidden" id="recordError"></p>
+        </section>
+        <!-- 多人批次新增服務紀錄 -->
+        <section class="card">
+          <div class="records-header">
+            <div>
+              <h2>多人批次新增服務紀錄</h2>
+              <p class="section-desc">節日、廟會或大型活動才需要使用。平常先收起來，需要時再展開，勾選多位志工後可先建立預覽表，再逐位調整時數與費用。</p>
+            </div>
+            <div class="records-actions">
+              <button class="btn secondary" id="batchToggleBtn" type="button">開啟多人批次新增</button>
+            </div>
+          </div>
+          <div class="hidden" id="batchPanel" style="margin-top: 1rem;">
+            <form class="form-grid" id="batch-form">
+              <div class="field-group">
+                <label for="batchStartDate">服務日期起</label>
+                <input id="batchStartDate" type="date">
+              </div>
+              <div class="field-group">
+                <label for="batchEndDate">服務日期迄</label>
+                <input id="batchEndDate" type="date">
+              </div>
+              <div class="field-group">
+                <label for="batchServiceItemSelect">服務項目</label>
+                <select id="batchServiceItemSelect">
+                  <option value="">請選擇服務項目</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label for="batchServiceContentSelect">服務內容</label>
+                <select id="batchServiceContentSelect">
+                  <option value="">請先選擇服務項目</option>
+                </select>
+              </div>
+              <div class="field-group full-width">
+                <label>預設服務時數與人數</label>
+                <div class="inline-fields">
+                  <div class="inline-field-group">
+                    <span>小時</span>
+                    <input id="batchHours" min="0" placeholder="小時" step="1" type="number">
+                  </div>
+                  <div class="inline-field-group">
+                    <span>分鐘</span>
+                    <input id="batchMinutes" max="59" min="0" placeholder="分鐘" step="1" type="number">
+                  </div>
+                  <div class="inline-field-group">
+                    <span>人數</span>
+                    <input id="batchClientCount" min="0" placeholder="人數" step="1" type="number" value="0">
+                  </div>
+                  <div class="inline-field-group">
+                    <span>交通費</span>
+                    <input id="batchTrafficFee" min="0" step="1" type="number" value="0">
+                  </div>
+                  <div class="inline-field-group">
+                    <span>誤餐費</span>
+                    <input id="batchMealFee" min="0" step="1" type="number" value="0">
+                  </div>
+                </div>
+              </div>
+              <div class="field-group full-width">
+                <label>勾選參與志工</label>
+                <div class="records-actions" style="justify-content:flex-start; margin-bottom:0.6rem;">
+                  <label style="display:flex; align-items:center; gap:0.4rem;">
+                    <input id="batchSelectAll" type="checkbox">
+                    全選
+                  </label>
+                  <button class="btn btn-small btn-secondary" id="batchClearSelectedBtn" type="button">清除選取</button>
+                </div>
+                <div class="volunteer-list" id="batchVolunteerChecklist" style="max-height: 220px; overflow:auto; border:1px solid #E1DED2; border-radius:10px; padding:0.8rem;">
+                  尚未建立志工名單
+                </div>
+              </div>
+              <div class="field-group full-width">
+                <div class="records-actions" style="justify-content:flex-start;">
+                  <button class="btn secondary" id="batchBuildPreviewBtn" type="button">建立預覽表</button>
+                  <button class="btn secondary" id="batchClearDraftBtn" type="button">清空批次草稿</button>
+                </div>
+              </div>
+              <div class="field-group full-width">
+                <div class="table-wrapper" id="batchPreviewWrapper" style="margin-top: 1rem;">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>姓名</th>
+                        <th>身分證</th>
+                        <th>服務日期起</th>
+                        <th>服務日期迄</th>
+                        <th>小時</th>
+                        <th>分鐘</th>
+                        <th>人數</th>
+                        <th>人次</th>
+                        <th>交通費</th>
+                        <th>誤餐費</th>
+                        <th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody id="batchPreviewTableBody">
+                      <tr>
+                        <td colspan="11">勾選志工並建立預覽表後，會在這裡逐位調整。</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="field-group full-width">
+                <button class="btn primary" id="batchSubmitBtn" type="submit">新增到服務紀錄</button>
+              </div>
+            </form>
+            <p aria-live="polite" class="status-message error hidden" id="batchError"></p>
+          </div>
+        </section>
+        <!-- 目前服務紀錄 -->
+        <section class="card">
+          <div class="records-header">
+            <div>
+              <h2>目前服務紀錄</h2>
+              <p class="section-desc">「好讀模式」方便檢查資料；切換成「匯入模式」後，可直接複製貼到官方 Excel 匯入範本。</p>
+            </div>
+            <div class="records-actions">
+              <button class="btn primary" id="copyTableBtn">複製表格內容</button>
+              <button class="btn secondary" id="clearRecordsBtn">清空紀錄</button>
+            </div>
+          </div>
+          <div class="records-summary-bar" id="recordsSummaryBar"></div>
+          <div class="display-mode-toggle">
+            <span>表格顯示模式：</span>
+            <label>
+              <input checked name="displayMode" type="radio" value="readable">
+              好讀模式
+            </label>
+            <label>
+              <input name="displayMode" type="radio" value="import">
+              匯入模式（複製貼到官方 Excel）
+            </label>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>姓名</th>
+                  <th>身分證字號</th>
+                  <th>服務日期起</th>
+                  <th>服務日期迄</th>
+                  <th>服務項目</th>
+                  <th>服務內容</th>
+                  <th>服務時數-小時</th>
+                  <th>服務時數-分鐘</th>
+                  <th>受服務人次</th>
+                  <th>交通費</th>
+                  <th>誤餐費</th>
+                  <th>服務區域</th>
+                  <th>備註</th>
+                  <th>匯入動作</th>
+                  <th>序號</th>
+                  <th>國外參與服務人次</th>
+                  <th>國內參與服務人次</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="recordsTableBody"></tbody>
+            </table>
+          </div>
+        </section>
       </div>
-
-      <div class="field-group full-width">
-        <div class="records-actions" style="justify-content:flex-start;">
-          <button type="button" class="btn secondary" id="batchBuildPreviewBtn">建立預覽表</button>
-          <button type="button" class="btn secondary" id="batchClearDraftBtn">清空批次草稿</button>
-        </div>
-      </div>
-
-      <div class="field-group full-width">
-        <div class="table-wrapper" id="batchPreviewWrapper" style="margin-top: 1rem;">
-          <table>
-            <thead>
-              <tr>
-                <th>姓名</th>
-                <th>身分證</th>
-                <th>服務日期起</th>
-                <th>服務日期迄</th>
-                <th>小時</th>
-                <th>分鐘</th>
-                <th>人數</th>
-                <th>人次</th>
-                <th>交通費</th>
-                <th>誤餐費</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody id="batchPreviewTableBody">
-              <tr>
-                <td colspan="11">勾選志工並建立預覽表後，會在這裡逐位調整。</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="field-group full-width">
-        <button type="submit" class="btn primary" id="batchSubmitBtn">新增到服務紀錄</button>
-      </div>
-    </form>
-    <p id="batchError" class="error-message"></p>
-  </div>
-</section>
-
-<!-- 目前服務紀錄 -->
-<section class="card">
-<div class="records-header">
-<div>
-<h2>目前服務紀錄</h2>
-<p class="section-desc">
-              「好讀模式」方便檢查資料；切換成「匯入模式」後，可直接複製貼到官方 Excel 匯入範本。
-            </p>
-</div>
-<div class="records-actions">
-<button class="btn primary" id="copyTableBtn">複製表格內容</button>
-<button class="btn secondary" id="clearRecordsBtn">清空紀錄</button>
-</div>
-</div>
-<div class="records-summary-bar" id="recordsSummaryBar"></div>
-<div class="display-mode-toggle">
-<span>表格顯示模式：</span>
-<label>
-<input checked="" name="displayMode" type="radio" value="readable"/>
-            好讀模式
-          </label>
-<label>
-<input name="displayMode" type="radio" value="import"/>
-            匯入模式（複製貼到官方 Excel）
-          </label>
-</div>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr>
-<th>姓名</th>
-<th>身分證字號</th>
-<th>服務日期起</th>
-<th>服務日期迄</th>
-<th>服務項目</th>
-<th>服務內容</th>
-<th>服務時數-小時</th>
-<th>服務時數-分鐘</th>
-<th>受服務人次</th>
-<th>交通費</th>
-<th>誤餐費</th>
-<th>服務區域</th>
-<th>備註</th>
-<th>匯入動作</th>
-<th>序號</th>
-<th>國外參與服務人次</th>
-<th>國內參與服務人次</th>
-<th>操作</th>
-</tr>
-</thead>
-<tbody id="recordsTableBody"></tbody>
-</table>
-</div>
-</section>
-</div><!-- /#appSection -->
-</main>
-<script src="./script.js"></script>
-</body>
+      <!-- /#appSection -->
+    </main>
+    <script src="./script.js"></script>
+  </body>
 </html>
