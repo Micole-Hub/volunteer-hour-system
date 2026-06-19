@@ -88,7 +88,8 @@ const SERVICE_CONTENTS_BY_ITEM = {
   "0060": [
     { code: "0056", label: "共餐服務" },
     { code: "0055", label: "健康促進" },
-    { code: "0053", label: "關懷訪視" },
+    { code: "0053", label: "關懷訪視"},
+    {code: "0099", label: "其他"},
   ],
   "0130": [
     { code: "0049", label: "行政支援" },
@@ -97,6 +98,8 @@ const SERVICE_CONTENTS_BY_ITEM = {
     { code: "0028", label: "引導服務" },
     { code: "0012", label: "宣導推廣服務" },
     { code: "0017", label: "環保服務" },
+    {code: "0099", label: "其他"},
+
   ],
 };
 
