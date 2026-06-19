@@ -1,6 +1,6 @@
 // === 後端 API 位址 ===
 // 本機測試先用 localhost，之後部署 Render 再換成 Render 網址
-const API_BASE_URL = "http://localhost:3000";
+const API_BASE_URL = "https://volunteer-hour-system-backend.onrender.com";
 
 // 登入成功後，後端會給前端一張臨時通行證
 let authToken = "";
