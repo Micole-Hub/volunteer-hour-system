@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <link href="./style.css" rel="stylesheet">
-    <link rel="icon" type="image/jpg" href="./favicon.jpg">   <title>volunteer-hour-system</title>
+    <link rel="icon" type="image/jpg" href="./favicon.jpg">
+    <title>volunteer-hour-system</title>
   </head>
   <body>
     <header class="page-header">
@@ -12,10 +13,11 @@
         <!-- 品牌列：山形 Logo + 協會名稱 -->
         <div class="page-header-brand">
           <svg aria-hidden="true" class="brand-logo" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="52" height="52" rx="13" fill="#1E2626"/>
-          <polyline points="6,38 26,14 36,27 46,38" fill="none" stroke="#BCC6C6" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
-          <line x1="6" y1="38" x2="46" y2="38" stroke="#4C5858" stroke-width="2.5" stroke-linecap="round"/>
-        </svg>
+            <rect width="52" height="52" rx="13" fill="#2A3C34"/>
+            <polygon points="6,42 26,12 46,42" fill="#5E7A6E"/>
+            <polygon points="18,42 32,22 46,42" fill="#C9D9D2" opacity="0.85"/>
+            <line x1="6" y1="42" x2="46" y2="42" stroke="#EBF2EF" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
           <div class="brand-text">
             <span class="brand-assoc">大山社區發展協會</span>
           </div>
@@ -25,9 +27,10 @@
       </div>
       <!-- 波浪分隔線 -->
       <svg aria-hidden="true" class="page-header-wave" fill="none" preserveAspectRatio="none" viewBox="0 0 1440 36" xmlns="http://www.w3.org/2000/svg">
-        <path d="M0,36 C240,0 480,30 720,16 C960,2 1200,28 1440,14 L1440,36 Z" fill="#FAF8F4"></path>
+        <path d="M0,36 C240,0 480,30 720,16 C960,2 1200,28 1440,14 L1440,36 Z" fill="#F7F9F8"></path>
       </svg>
     </header>
+
     <main class="container">
       <!-- 登入區塊 -->
       <section class="card" id="loginSection">
@@ -41,15 +44,15 @@
               <input autocomplete="current-password" id="loginPassword" placeholder="請輸入登入密碼" type="password">
               <button aria-label="切換顯示密碼" class="password-toggle" id="passwordToggleBtn" title="顯示／隱藏密碼" type="button">
                 <!-- 睜眼：密碼隱藏中（預設顯示） -->
-                <svg aria-hidden="true" class="eye-icon eye-open" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewBox="0 0 24 24">
-                  <path d="M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12z"></path>
-                  <circle cx="12" cy="12" r="3"></circle>
+                <svg class="eye-icon eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12z"/>
+                  <circle cx="12" cy="12" r="3"/>
                 </svg>
                 <!-- 眼睛劃掉：密碼顯示中 -->
-                <svg aria-hidden="true" class="eye-icon eye-off" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" style="display:none" viewBox="0 0 24 24">
-                  <path d="M17.94 17.94A10.94 10.94 0 0112 20C5 20 1 12 1 12a18.09 18.09 0 015.06-5.94"></path>
-                  <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"></path>
-                  <line x1="1" x2="23" y1="1" y2="23"></line>
+                <svg class="eye-icon eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
+                  <path d="M17.94 17.94A10.94 10.94 0 0112 20C5 20 1 12 1 12a18.09 18.09 0 015.06-5.94"/>
+                  <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
                 </svg>
               </button>
             </div>
@@ -60,8 +63,10 @@
           </div>
         </form>
       </section>
+
       <!-- 系統主畫面（登入後顯示） -->
       <div class="hidden" id="appSection">
+
         <!-- 志工名單設定 -->
         <section class="card">
           <h2>志工名單設定</h2>
@@ -89,6 +94,7 @@
             <ul id="volunteerList"></ul>
           </div>
         </section>
+
         <!-- 志工預設服務項目管理 -->
         <section class="card">
           <h2>志工預設服務項目管理</h2>
@@ -131,6 +137,7 @@
             <button class="btn secondary hidden" id="cancelVolunteerServicesEditBtn" type="button">取消編輯服務項目</button>
           </div>
         </section>
+
         <!-- 新增服務紀錄 -->
         <section class="card">
           <h2>新增服務紀錄</h2>
@@ -177,6 +184,7 @@
           </form>
           <p aria-live="polite" class="status-message error hidden" id="recordError"></p>
         </section>
+
         <!-- 多人批次新增服務紀錄 -->
         <section class="card">
           <div class="records-header">
@@ -244,7 +252,7 @@
                   </label>
                   <button class="btn btn-small btn-secondary" id="batchClearSelectedBtn" type="button">清除選取</button>
                 </div>
-                <div class="volunteer-list" id="batchVolunteerChecklist" style="max-height: 220px; overflow:auto; border:1px solid #E1DED2; border-radius:10px; padding:0.8rem;">
+                <div class="volunteer-list" id="batchVolunteerChecklist" style="max-height: 220px; overflow:auto; border:1px solid #C8CEC9; border-radius:10px; padding:0.8rem;">
                   尚未建立志工名單
                 </div>
               </div>
@@ -287,6 +295,7 @@
             <p aria-live="polite" class="status-message error hidden" id="batchError"></p>
           </div>
         </section>
+
         <!-- 目前服務紀錄 -->
         <section class="card">
           <div class="records-header">
@@ -339,9 +348,10 @@
             </table>
           </div>
         </section>
-      </div>
-      <!-- /#appSection -->
+
+      </div><!-- /#appSection -->
     </main>
+
     <script src="./script.js"></script>
   </body>
 </html>
