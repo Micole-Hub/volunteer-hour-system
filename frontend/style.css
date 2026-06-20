@@ -1,16 +1,16 @@
 /* ===================================================
    大山社區發展協會 志工時數小幫手 — CSS
-   主色：大地森綠  輔色：暖灰米
+   主色：霧鼠尾草（莫蘭迪灰綠）
    =================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
 
 :root {
-  /* 主色：大地森綠 */
-  --primary:        #3B6D11;
-  --primary-light:  #639922;
-  --primary-dark:   #27500A;
-  --primary-bg:     #EAF3DE;   /* 淡綠底（badge、icon背景） */
+  /* 主色：霧鼠尾草 */
+  --primary:        #4C5858;
+  --primary-light:  #6E7E7E;
+  --primary-dark:   #303838;
+  --primary-bg:     #E4EAEA;   /* 淡灰綠底（badge、icon背景） */
 
   /* 危險 */
   --danger:         #A32D2D;
@@ -18,22 +18,22 @@
   --danger-border:  #F7C1C1;
 
   /* 中性灰（文字、邊框、背景） */
-  --bg:             #FAF8F4;   /* 頁面底色：暖米白 */
+  --bg:             #F6F7F7;   /* 頁面底色 */
   --bg-card:        #ffffff;
-  --bg-field:       #FAF8F4;   /* 輸入欄底色 */
-  --bg-readonly:    #F1EFE8;   /* 唯讀欄底色 */
-  --border:         #D3D1C7;   /* 常規邊框 */
-  --border-subtle:  #EAF3DE;   /* 卡片細框 */
+  --bg-field:       #F6F7F7;   /* 輸入欄底色 */
+  --bg-readonly:    #E4EAEA;   /* 唯讀欄底色 */
+  --border:         #C8CCCC;   /* 常規邊框 */
+  --border-subtle:  #DDE3E3;   /* 卡片細框 */
 
   /* 文字 */
-  --text:           #2C2C2A;   /* 主文字：深炭灰 */
-  --text-muted:     #5F5E5A;   /* 次要文字：中灰 */
-  --text-light:     #B4B2A9;   /* 輔助文字：淡灰 */
+  --text:           #2A2E2E;   /* 主文字 */
+  --text-muted:     #5A6464;   /* 次要文字 */
+  --text-light:     #8FA4A4;   /* 輔助文字 */
 
-  /* 陰影（輕量） */
-  --shadow-sm:      0 1px 4px rgba(39,80,10,0.07);
-  --shadow-md:      0 3px 12px rgba(39,80,10,0.09);
-  --shadow-lg:      0 6px 24px rgba(39,80,10,0.12);
+  /* 陰影 */
+  --shadow-sm:      0 1px 4px rgba(48,56,56,0.07);
+  --shadow-md:      0 3px 12px rgba(48,56,56,0.09);
+  --shadow-lg:      0 6px 24px rgba(48,56,56,0.12);
 
   --radius:         14px;
   --radius-sm:      8px;
@@ -58,19 +58,18 @@ body {
    =================================================== */
 
 .page-header {
-  background: linear-gradient(135deg, #173404 0%, #27500A 50%, #3B6D11 100%);
+  background: linear-gradient(135deg, #1E2626 0%, #303838 55%, #4C5858 100%);
   color: #fff;
   padding: 0;
   position: relative;
   overflow: hidden;
 }
 
-/* 裝飾光暈 */
 .page-header::before {
   content: '';
   position: absolute;
   width: 420px; height: 420px;
-  background: #EAF3DE;
+  background: #BCC6C6;
   border-radius: 50%;
   opacity: 0.05;
   top: -160px; right: -80px;
@@ -115,13 +114,13 @@ body {
 .brand-assoc {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #EAF3DE;
+  color: #EEF1F1;
   letter-spacing: 0.04em;
 }
 
 .brand-sub {
   font-size: 0.72rem;
-  color: #97C459;
+  color: #BCC6C6;
   letter-spacing: 0.06em;
 }
 
@@ -129,7 +128,7 @@ body {
   margin: 0 0 0.5rem;
   font-size: 1.85rem;
   font-weight: 700;
-  color: #EAF3DE;
+  color: #EEF1F1;
   letter-spacing: 0.05em;
 }
 
@@ -138,7 +137,7 @@ body {
   font-size: 0.93rem;
   max-width: 580px;
   line-height: 1.7;
-  color: #97C459;
+  color: #BCC6C6;
 }
 
 .page-header-wave {
@@ -168,7 +167,7 @@ body {
   padding: 1.6rem 1.5rem 1.9rem;
   margin-bottom: 1.6rem;
   box-shadow: var(--shadow-md);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-subtle);
   transition: box-shadow var(--transition);
 }
 
@@ -186,7 +185,6 @@ body {
   gap: 0.55rem;
 }
 
-/* h2 左側色條（森綠） */
 .card h2::before {
   content: '';
   display: inline-block;
@@ -263,7 +261,7 @@ input[readonly] {
 }
 
 select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%233B6D11' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%234C5858' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.7rem center;
   padding-right: 2.2rem;
@@ -275,7 +273,7 @@ textarea:focus {
   outline: none;
   border-color: var(--primary);
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(59,109,17,0.13);
+  box-shadow: 0 0 0 3px rgba(76,88,88,0.13);
 }
 
 textarea {
@@ -294,7 +292,6 @@ textarea {
 
 .password-wrapper input[type="password"],
 .password-wrapper input[type="text"] {
-  /* 右側留空給按鈕 */
   padding-right: 2.8rem;
 }
 
@@ -379,20 +376,18 @@ textarea {
   white-space: nowrap;
 }
 
-/* 主要按鈕：森綠 */
 .btn.primary {
   background: var(--primary);
-  color: #EAF3DE;
-  box-shadow: 0 3px 10px rgba(39,80,10,0.25);
+  color: #EEF1F1;
+  box-shadow: 0 3px 10px rgba(48,56,56,0.22);
 }
 
 .btn.primary:hover {
   background: var(--primary-dark);
-  box-shadow: 0 5px 16px rgba(39,80,10,0.32);
+  box-shadow: 0 5px 16px rgba(48,56,56,0.30);
   transform: translateY(-1px);
 }
 
-/* 次要按鈕：暖灰米 */
 .btn.secondary {
   background: var(--bg-readonly);
   color: var(--text);
@@ -400,7 +395,7 @@ textarea {
 }
 
 .btn.secondary:hover {
-  background: #E8E6DF;
+  background: #D4DCDC;
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
 }
@@ -425,9 +420,8 @@ textarea {
   border: 1px solid var(--border);
 }
 
-.btn-secondary:hover { background: #E8E6DF; }
+.btn-secondary:hover { background: #D4DCDC; }
 
-/* 危險按鈕 */
 .btn-danger {
   background: var(--danger-light);
   color: var(--danger);
@@ -467,7 +461,6 @@ textarea {
 }
 
 .volunteer-list li:nth-child(odd) { background: var(--bg); }
-
 .volunteer-list li:hover { background: var(--primary-bg); }
 
 .volunteer-text {
@@ -586,7 +579,7 @@ th {
   text-align: left;
   color: var(--primary-dark);
   border-bottom: 2px solid var(--border);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--border-subtle);
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
@@ -595,8 +588,8 @@ th:last-child { border-right: none; }
 
 td {
   padding: 0.5rem 0.7rem;
-  border-bottom: 1px solid #EDEBE5;
-  border-right: 1px solid #F1EFE8;
+  border-bottom: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--bg);
   vertical-align: middle;
   color: var(--text);
 }
@@ -604,11 +597,9 @@ td {
 td:last-child { border-right: none; }
 
 tbody tr { transition: background var(--transition); }
+tbody tr:nth-child(even) { background: var(--bg); }
 tbody tr:hover { background: var(--primary-bg); }
 tbody tr:last-child td { border-bottom: none; }
-
-tbody tr:nth-child(even) { background: var(--bg); }
-tbody tr:nth-child(even):hover { background: #D9EEC5; }
 
 /* ===================================================
    錯誤訊息
@@ -625,7 +616,7 @@ tbody tr:nth-child(even):hover { background: #D9EEC5; }
 }
 
 /* ===================================================
-   登入區塊置中
+   登入區塊
    =================================================== */
 
 #loginSection {
@@ -694,119 +685,3 @@ tbody tr:nth-child(even):hover { background: #D9EEC5; }
   font-size: 1rem;
   line-height: 1;
 }
-/* 新增服務紀錄：多列填寫表格欄位寬度 */
-#recordServiceDraftWrapper table {
-  min-width: 1100px;
-}
-
-#recordServiceDraftWrapper input[type="date"] {
-  min-width: 130px;
-}
-
-#recordServiceDraftWrapper input[type="number"],
-#recordServiceDraftWrapper input[type="text"] {
-  min-width: 72px;
-}
-
-/* ===================================================
-   表單操作與狀態訊息
-   =================================================== */
-
-.form-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  align-items: center;
-}
-
-.status-message {
-  margin: 0.85rem 0 1rem;
-  padding: 0.72rem 0.9rem;
-  border-radius: var(--radius-sm);
-  border: 1.5px solid var(--border);
-  font-size: 0.88rem;
-  font-weight: 500;
-  line-height: 1.55;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.45rem;
-  box-shadow: var(--shadow-sm);
-}
-
-.status-message::before {
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.status-message.success {
-  background: #F0FDF4;
-  border-color: #86EFAC;
-  color: #166534;
-}
-
-.status-message.success::before { content: "✓"; }
-
-.status-message.warning {
-  background: #FFFBEB;
-  border-color: #FCD34D;
-  color: #92400E;
-}
-
-.status-message.warning::before { content: "⚠"; }
-
-.status-message.error {
-  background: var(--danger-light);
-  border-color: var(--danger-border);
-  color: var(--danger);
-}
-
-.status-message.error::before { content: "✕"; }
-
-.status-message.info {
-  background: #F0F9FF;
-  border-color: #7DD3FC;
-  color: #075985;
-}
-
-.status-message.info::before { content: "ℹ"; }
-
-.volunteer-editing-note {
-  background: #FFFBEB !important;
-  border: 1px dashed #FCD34D;
-  color: #92400E;
-  font-size: 0.88rem;
-  justify-content: flex-start !important;
-}
-
-.volunteer-list li.is-being-edited {
-  background: #FFFBEB;
-  border: 1px dashed #FCD34D;
-  opacity: 0.92;
-}
-
-.btn:active {
-  transform: translateY(1px) scale(0.98) !important;
-  box-shadow: none;
-}
-
-.btn:disabled,
-.btn.is-loading {
-  opacity: 0.72;
-  cursor: wait;
-  pointer-events: none;
-}
-
-.btn.is-loading::after {
-  content: "";
-  width: 0.82em;
-  height: 0.82em;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: buttonSpin 0.75s linear infinite;
-}
-
-@keyframes buttonSpin {
-  to { transform: rotate(360deg); }
-}
-
