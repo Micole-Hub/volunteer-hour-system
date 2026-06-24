@@ -58,6 +58,7 @@ const batchStartDateInput = document.getElementById("batchStartDate");
 const batchEndDateInput = document.getElementById("batchEndDate");
 const batchServiceItemSelect = document.getElementById("batchServiceItemSelect");
 const batchServiceContentSelect = document.getElementById("batchServiceContentSelect");
+const batchRemarkInput = document.getElementById("batchRemark");
 const batchHoursInput = document.getElementById("batchHours");
 const batchMinutesInput = document.getElementById("batchMinutes");
 const batchClientCountInput = document.getElementById("batchClientCount");
@@ -489,6 +490,14 @@ function normalizeServiceTime(hours, minutes) {
 }
 function cleanCellForExcel(value) {
   return String(value ?? "").replace(/\t/g, " ").replace(/\r?\n/g, " ").trim();
+}
+
+function escapeHtmlAttribute(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 async function copyTextToClipboard(text) {
@@ -1699,7 +1708,8 @@ function isSameServiceRecord(a, b) {
     a.startDate === b.startDate &&
     a.endDate === b.endDate &&
     padCode4(a.serviceItemCode) === padCode4(b.serviceItemCode) &&
-    padCode4(a.serviceContentCode) === padCode4(b.serviceContentCode)
+    padCode4(a.serviceContentCode) === padCode4(b.serviceContentCode) &&
+    String(a.remark || "").trim() === String(b.remark || "").trim()
   );
 }
 
@@ -1719,6 +1729,7 @@ function findDuplicateRecordInNewRecords(newRecords) {
       record.endDate,
       padCode4(record.serviceItemCode),
       padCode4(record.serviceContentCode),
+      String(record.remark || "").trim(),
     ].join("__");
 
     if (seen.has(key)) {
@@ -2339,7 +2350,9 @@ function buildReadableRowCells(r) {
     String(r.peopleCount ?? 0),
     String(r.trafficFee ?? 0),
     String(r.mealFee ?? 0),
-    "", "", "", "", "", "",
+    "",
+    r.remark || "",
+    "", "", "", "",
   ];
 }
 
@@ -2356,7 +2369,9 @@ function buildImportRowCells(r) {
     String(r.peopleCount ?? 0),
     String(r.trafficFee ?? 0),
     String(r.mealFee ?? 0),
-    "", "", "", "", "", "",
+    "",
+    r.remark || "",
+    "", "", "", "",
   ];
 }
 
@@ -2768,6 +2783,7 @@ function validateBatchCommonInputs() {
   const endDate = batchEndDateInput ? batchEndDateInput.value : "";
   const serviceItemCode = batchServiceItemSelect ? padCode4(batchServiceItemSelect.value) : "";
   const serviceContentCode = batchServiceContentSelect ? padCode4(batchServiceContentSelect.value) : "";
+  const remark = batchRemarkInput ? batchRemarkInput.value.trim() : "";
   const todayStr = getTodayLocalYYYYMMDD();
 
   if (!startDate || !endDate) {
@@ -2846,6 +2862,7 @@ function validateBatchCommonInputs() {
       peopleCount: Math.round(clientCount * normalizedTime.countedHours),
       trafficFee,
       mealFee,
+      remark,
     },
   };
 }
@@ -2949,6 +2966,7 @@ function syncBatchDraftRowFromInputs(rowEl, index, options = {}) {
   const peopleCountInput = getBatchPreviewInput(rowEl, "peopleCount");
   const trafficFeeInput = getBatchPreviewInput(rowEl, "trafficFee");
   const mealFeeInput = getBatchPreviewInput(rowEl, "mealFee");
+  const remarkInput = getBatchPreviewInput(rowEl, "remark");
 
   sanitizeNonNegativeIntegerInput(hoursInput);
   sanitizeMinutesInput(minutesInput);
@@ -2965,6 +2983,7 @@ function syncBatchDraftRowFromInputs(rowEl, index, options = {}) {
   draft.clientCount = Number.isNaN(clientCount) ? 0 : clientCount;
   draft.trafficFee = Number.isNaN(trafficFee) ? 0 : trafficFee;
   draft.mealFee = Number.isNaN(mealFee) ? 0 : mealFee;
+  draft.remark = remarkInput ? remarkInput.value.trim() : String(draft.remark || "").trim();
 
   const normalizedTime = normalizeServiceTime(hours, minutes);
 
@@ -2989,7 +3008,7 @@ function syncBatchDraftRowFromInputs(rowEl, index, options = {}) {
 }
 
 function bindBatchPreviewRowEvents(rowEl, index) {
-  ["startDate", "endDate", "hours", "minutes", "clientCount", "trafficFee", "mealFee"].forEach((field) => {
+  ["startDate", "endDate", "hours", "minutes", "clientCount", "trafficFee", "mealFee", "remark"].forEach((field) => {
     const input = getBatchPreviewInput(rowEl, field);
     if (!input) return;
 
@@ -3017,7 +3036,7 @@ function renderBatchPreviewTable() {
   if (batchDraftRows.length === 0) {
     batchPreviewTableBody.innerHTML = `
       <tr>
-        <td colspan="11">勾選志工並建立預覽表後，會在這裡逐位調整。</td>
+        <td colspan="12">勾選志工並建立預覽表後，會在這裡逐位調整。</td>
       </tr>
     `;
     return;
@@ -3038,6 +3057,7 @@ function renderBatchPreviewTable() {
       <td><input type="text" readonly value="${row.peopleCount ?? ""}" data-field="peopleCount" /></td>
       <td><input type="number" min="0" step="1" value="${row.trafficFee ?? ""}" data-field="trafficFee" /></td>
       <td><input type="number" min="0" step="1" value="${row.mealFee ?? ""}" data-field="mealFee" /></td>
+      <td><input type="text" value="${escapeHtmlAttribute(row.remark || "")}" data-field="remark" placeholder="備註" /></td>
       <td>
         <button type="button" class="btn btn-small btn-danger" data-action="removeBatchPreviewRow" data-index="${index}">移除</button>
       </td>
@@ -3108,6 +3128,7 @@ function validateBatchDraftRowsForRecords() {
       peopleCount: Math.round(Number(row.clientCount || 0) * normalizedTime.countedHours),
       trafficFee: Number(row.trafficFee || 0),
       mealFee: Number(row.mealFee || 0),
+      remark: String(row.remark || "").trim(),
       sourceType: "batch",
     });
   }
