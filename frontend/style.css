@@ -118,12 +118,6 @@ body {
   letter-spacing: 0.04em;
 }
 
-.brand-sub {
-  font-size: 0.72rem;
-  color: #B8CEC7;
-  letter-spacing: 0.06em;
-}
-
 .page-header h1 {
   margin: 0 0 0.5rem;
   font-size: 1.85rem;
@@ -346,7 +340,6 @@ textarea { resize: vertical; }
 
 @media (min-width: 640px) {
   .inline-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .inline-field-group.wide { grid-column: 1 / -1; }
 }
 
 /* ===================================================
@@ -382,13 +375,15 @@ textarea { resize: vertical; }
   transform: translateY(-1px);
 }
 
-.btn.secondary {
+.btn.secondary,
+.btn-secondary {
   background: var(--bg-readonly);
   color: var(--text);
   border: 1px solid var(--border);
 }
 
-.btn.secondary:hover {
+.btn.secondary:hover,
+.btn-secondary:hover {
   background: #CDD9D4;
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
@@ -406,14 +401,6 @@ textarea { resize: vertical; }
   font-weight: 500;
   box-shadow: none;
 }
-
-.btn-secondary {
-  background: var(--bg-readonly);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-.btn-secondary:hover { background: #CDD9D4; }
 
 .btn-danger {
   background: var(--danger-light);
@@ -662,4 +649,15 @@ tbody tr:last-child td { border-bottom: none; }
   color: var(--border);
   font-size: 1rem;
   line-height: 1;
+}
+#recordServiceDraftWrapper table th:nth-child(5),
+#recordServiceDraftWrapper table td:nth-child(5),
+#recordServiceDraftWrapper table th:nth-child(6),
+#recordServiceDraftWrapper table td:nth-child(6) {
+  min-width: 90px;
+}
+
+#recordServiceDraftWrapper input[data-field="hours"],
+#recordServiceDraftWrapper input[data-field="minutes"] {
+  min-width: 78px;
 }
