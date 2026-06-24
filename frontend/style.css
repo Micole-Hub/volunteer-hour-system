@@ -659,5 +659,5 @@ tbody tr:last-child td { border-bottom: none; }
 
 #recordServiceDraftWrapper input[data-field="hours"],
 #recordServiceDraftWrapper input[data-field="minutes"] {
-  min-width: 78px;
+  min-width: 90px;
 }
