@@ -654,10 +654,12 @@ tbody tr:last-child td { border-bottom: none; }
 #recordServiceDraftWrapper table td:nth-child(5),
 #recordServiceDraftWrapper table th:nth-child(6),
 #recordServiceDraftWrapper table td:nth-child(6) {
-  min-width: 90px;
+  min-width: 120px;
 }
 
 #recordServiceDraftWrapper input[data-field="hours"],
-#recordServiceDraftWrapper input[data-field="minutes"] {
-  min-width: 90px;
+#recordServiceDraftWrapper input[data-field="minutes"] { width: 100%;
+  min-width: 96px;
+  text-align: center;
+  min-width: 120px;
 }
