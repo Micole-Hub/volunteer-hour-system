@@ -650,130 +650,132 @@ tbody tr:last-child td { border-bottom: none; }
   font-size: 1rem;
   line-height: 1;
 }
-/* 新增服務紀錄：草稿表欄位寬度 */
-#recordServiceDraftWrapper table {
-  min-width: 1500px;
-  table-layout: fixed;
-}
 
-/* 服務項目、服務內容 */
-#recordServiceDraftWrapper table th:nth-child(1),
-#recordServiceDraftWrapper table td:nth-child(1),
-#recordServiceDraftWrapper table th:nth-child(2),
-#recordServiceDraftWrapper table td:nth-child(2) {
-  width: 150px;
-}
+/* ===================================================
+   表格欄位空間：新增服務紀錄 / 多人批次預覽
+   =================================================== */
 
-/* 服務日期起、服務日期迄 */
-#recordServiceDraftWrapper table th:nth-child(3),
-#recordServiceDraftWrapper table td:nth-child(3),
-#recordServiceDraftWrapper table th:nth-child(4),
-#recordServiceDraftWrapper table td:nth-child(4) {
-  width: 210px;
-}
-
-/* 小時、分鐘 */
-#recordServiceDraftWrapper table th:nth-child(5),
-#recordServiceDraftWrapper table td:nth-child(5),
-#recordServiceDraftWrapper table th:nth-child(6),
-#recordServiceDraftWrapper table td:nth-child(6) {
-  width: 150px;
-}
-
-/* 人數、人次 */
-#recordServiceDraftWrapper table th:nth-child(7),
-#recordServiceDraftWrapper table td:nth-child(7),
-#recordServiceDraftWrapper table th:nth-child(8),
-#recordServiceDraftWrapper table td:nth-child(8) {
-  width: 130px;
-}
-
-/* 交通費、誤餐費 */
-#recordServiceDraftWrapper table th:nth-child(9),
-#recordServiceDraftWrapper table td:nth-child(9),
-#recordServiceDraftWrapper table th:nth-child(10),
-#recordServiceDraftWrapper table td:nth-child(10) {
-  width: 140px;
-}
-
-#recordServiceDraftWrapper input[data-field="startDate"],
-#recordServiceDraftWrapper input[data-field="endDate"],
-#recordServiceDraftWrapper input[data-field="hours"],
-#recordServiceDraftWrapper input[data-field="minutes"],
-#recordServiceDraftWrapper input[data-field="clientCount"],
-#recordServiceDraftWrapper input[data-field="peopleCount"],
-#recordServiceDraftWrapper input[data-field="trafficFee"],
-#recordServiceDraftWrapper input[data-field="mealFee"] {
-  width: 100%;
-  min-width: 100px;
-  text-align: center;
-}
-/* 多人批次新增：預覽表欄位寬度 */
+/* 兩張可編輯表格都用固定欄寬，避免數字被欄位擠到遮住 */
+#recordServiceDraftWrapper table,
 #batchPreviewWrapper table {
-  min-width: 1500px;
   table-layout: fixed;
 }
 
-/* 姓名、身分證 */
-#batchPreviewWrapper table th:nth-child(1),
-#batchPreviewWrapper table td:nth-child(1) {
-  width: 130px;
+/* 新增服務紀錄：草稿表 */
+#recordServiceDraftWrapper table {
+  min-width: 1700px;
 }
 
-#batchPreviewWrapper table th:nth-child(2),
-#batchPreviewWrapper table td:nth-child(2) {
-  width: 150px;
+/* 多人批次新增：預覽表 */
+#batchPreviewWrapper table {
+  min-width: 2050px;
 }
 
-/* 服務日期起、服務日期迄 */
-#batchPreviewWrapper table th:nth-child(3),
-#batchPreviewWrapper table td:nth-child(3),
-#batchPreviewWrapper table th:nth-child(4),
-#batchPreviewWrapper table td:nth-child(4) {
-  width: 210px;
+/* 表格裡的輸入框：保留足夠空間，數字置中 */
+#recordServiceDraftWrapper input,
+#batchPreviewWrapper input {
+  width: 100%;
+  min-width: 0;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
-/* 小時、分鐘 */
-#batchPreviewWrapper table th:nth-child(5),
-#batchPreviewWrapper table td:nth-child(5),
-#batchPreviewWrapper table th:nth-child(6),
-#batchPreviewWrapper table td:nth-child(6) {
-  width: 130px;
+/* 避免 number 欄位的上下箭頭擠壓數字 */
+#recordServiceDraftWrapper input[type="number"],
+#batchPreviewWrapper input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
-/* 人數、人次 */
-#batchPreviewWrapper table th:nth-child(7),
-#batchPreviewWrapper table td:nth-child(7),
-#batchPreviewWrapper table th:nth-child(8),
-#batchPreviewWrapper table td:nth-child(8) {
-  width: 130px;
+#recordServiceDraftWrapper input[type="number"]::-webkit-outer-spin-button,
+#recordServiceDraftWrapper input[type="number"]::-webkit-inner-spin-button,
+#batchPreviewWrapper input[type="number"]::-webkit-outer-spin-button,
+#batchPreviewWrapper input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
-/* 交通費、誤餐費 */
-#batchPreviewWrapper table th:nth-child(9),
-#batchPreviewWrapper table td:nth-child(9),
-#batchPreviewWrapper table th:nth-child(10),
-#batchPreviewWrapper table td:nth-child(10) {
-  width: 140px;
+/* 備註欄靠左，比較像一般文字輸入 */
+#batchPreviewWrapper input[data-field="remark"] {
+  text-align: left;
 }
 
-/* 備註、操作 */
-#batchPreviewWrapper table th:nth-child(11),
-#batchPreviewWrapper table td:nth-child(11) {
+/* 新增服務紀錄：服務項目、服務內容 */
+#recordServiceDraftWrapper th:nth-child(1),
+#recordServiceDraftWrapper td:nth-child(1),
+#recordServiceDraftWrapper th:nth-child(2),
+#recordServiceDraftWrapper td:nth-child(2) {
+  width: 160px;
+}
+
+/* 新增服務紀錄：服務日期起、服務日期迄 */
+#recordServiceDraftWrapper th:nth-child(3),
+#recordServiceDraftWrapper td:nth-child(3),
+#recordServiceDraftWrapper th:nth-child(4),
+#recordServiceDraftWrapper td:nth-child(4) {
   width: 220px;
 }
 
-#batchPreviewWrapper table th:nth-child(12),
-#batchPreviewWrapper table td:nth-child(12) {
-  width: 110px;
+/* 新增服務紀錄：小時、分鐘、人數、人次、交通費、誤餐費 */
+#recordServiceDraftWrapper th:nth-child(5),
+#recordServiceDraftWrapper td:nth-child(5),
+#recordServiceDraftWrapper th:nth-child(6),
+#recordServiceDraftWrapper td:nth-child(6),
+#recordServiceDraftWrapper th:nth-child(7),
+#recordServiceDraftWrapper td:nth-child(7),
+#recordServiceDraftWrapper th:nth-child(8),
+#recordServiceDraftWrapper td:nth-child(8),
+#recordServiceDraftWrapper th:nth-child(9),
+#recordServiceDraftWrapper td:nth-child(9),
+#recordServiceDraftWrapper th:nth-child(10),
+#recordServiceDraftWrapper td:nth-child(10) {
+  width: 150px;
 }
 
-#batchPreviewWrapper input {
-  width: 100%;
-  min-width: 90px;
-  text-align: center;
+/* 多人批次預覽：姓名、身分證 */
+#batchPreviewWrapper th:nth-child(1),
+#batchPreviewWrapper td:nth-child(1) {
+  width: 150px;
 }
 
-#batchPreviewWrapper input[data-field="remark"] {
-  text-align: left;
+#batchPreviewWrapper th:nth-child(2),
+#batchPreviewWrapper td:nth-child(2) {
+  width: 170px;
+}
+
+/* 多人批次預覽：服務日期起、服務日期迄 */
+#batchPreviewWrapper th:nth-child(3),
+#batchPreviewWrapper td:nth-child(3),
+#batchPreviewWrapper th:nth-child(4),
+#batchPreviewWrapper td:nth-child(4) {
+  width: 220px;
+}
+
+/* 多人批次預覽：小時、分鐘、人數、人次、交通費、誤餐費 */
+#batchPreviewWrapper th:nth-child(5),
+#batchPreviewWrapper td:nth-child(5),
+#batchPreviewWrapper th:nth-child(6),
+#batchPreviewWrapper td:nth-child(6),
+#batchPreviewWrapper th:nth-child(7),
+#batchPreviewWrapper td:nth-child(7),
+#batchPreviewWrapper th:nth-child(8),
+#batchPreviewWrapper td:nth-child(8),
+#batchPreviewWrapper th:nth-child(9),
+#batchPreviewWrapper td:nth-child(9),
+#batchPreviewWrapper th:nth-child(10),
+#batchPreviewWrapper td:nth-child(10) {
+  width: 150px;
+}
+
+/* 多人批次預覽：備註、操作 */
+#batchPreviewWrapper th:nth-child(11),
+#batchPreviewWrapper td:nth-child(11) {
+  width: 260px;
+}
+
+#batchPreviewWrapper th:nth-child(12),
+#batchPreviewWrapper td:nth-child(12) {
+  width: 130px;
 }
