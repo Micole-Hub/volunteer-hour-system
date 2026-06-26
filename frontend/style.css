@@ -652,7 +652,16 @@ tbody tr:last-child td { border-bottom: none; }
 }
 /* 新增服務紀錄：草稿表欄位寬度 */
 #recordServiceDraftWrapper table {
-  min-width: 1320px;
+  min-width: 1500px;
+  table-layout: fixed;
+}
+
+/* 服務項目、服務內容 */
+#recordServiceDraftWrapper table th:nth-child(1),
+#recordServiceDraftWrapper table td:nth-child(1),
+#recordServiceDraftWrapper table th:nth-child(2),
+#recordServiceDraftWrapper table td:nth-child(2) {
+  width: 150px;
 }
 
 /* 服務日期起、服務日期迄 */
@@ -660,7 +669,7 @@ tbody tr:last-child td { border-bottom: none; }
 #recordServiceDraftWrapper table td:nth-child(3),
 #recordServiceDraftWrapper table th:nth-child(4),
 #recordServiceDraftWrapper table td:nth-child(4) {
-  min-width: 190px;
+  width: 210px;
 }
 
 /* 小時、分鐘 */
@@ -668,7 +677,7 @@ tbody tr:last-child td { border-bottom: none; }
 #recordServiceDraftWrapper table td:nth-child(5),
 #recordServiceDraftWrapper table th:nth-child(6),
 #recordServiceDraftWrapper table td:nth-child(6) {
-  min-width: 130px;
+  width: 150px;
 }
 
 /* 人數、人次 */
@@ -676,7 +685,7 @@ tbody tr:last-child td { border-bottom: none; }
 #recordServiceDraftWrapper table td:nth-child(7),
 #recordServiceDraftWrapper table th:nth-child(8),
 #recordServiceDraftWrapper table td:nth-child(8) {
-  min-width: 110px;
+  width: 130px;
 }
 
 /* 交通費、誤餐費 */
@@ -684,7 +693,7 @@ tbody tr:last-child td { border-bottom: none; }
 #recordServiceDraftWrapper table td:nth-child(9),
 #recordServiceDraftWrapper table th:nth-child(10),
 #recordServiceDraftWrapper table td:nth-child(10) {
-  min-width: 120px;
+  width: 140px;
 }
 
 #recordServiceDraftWrapper input[data-field="startDate"],
@@ -696,6 +705,6 @@ tbody tr:last-child td { border-bottom: none; }
 #recordServiceDraftWrapper input[data-field="trafficFee"],
 #recordServiceDraftWrapper input[data-field="mealFee"] {
   width: 100%;
-  min-width: 0;
+  min-width: 100px;
   text-align: center;
 }
